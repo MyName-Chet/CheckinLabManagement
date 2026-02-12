@@ -1,0 +1,157 @@
+{% extends 'cklab/base.html' %}
+{% load static %}
+
+{% block title %}ขอบคุณที่ใช้บริการ - CKLab{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* CSS สำหรับ Success Animation (Checkmark) */
+    .checkmark__circle {
+        stroke-dasharray: 166;
+        stroke-dashoffset: 166;
+        stroke-width: 2;
+        stroke-miterlimit: 10;
+        stroke: #7ac142;
+        fill: none;
+        animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+    }
+    .checkmark {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        display: block;
+        stroke-width: 2;
+        stroke: #fff;
+        stroke-miterlimit: 10;
+        margin: 10% auto;
+        box-shadow: inset 0px 0px 0px #7ac142;
+        animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both;
+    }
+    .checkmark__check {
+        transform-origin: 50% 50%;
+        stroke-dasharray: 48;
+        stroke-dashoffset: 48;
+        animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
+    }
+    @keyframes stroke { 100% { stroke-dashoffset: 0; } }
+    @keyframes fill { 100% { box-shadow: inset 0px 0px 0px 40px #7ac142; } }
+    @keyframes scale { 0%, 100% { transform: none; } 50% { transform: scale3d(1.1, 1.1, 1); } }
+
+    .star-rating span {
+        font-size: 2.5rem;
+        cursor: pointer;
+        color: #ddd;
+        transition: color 0.2s;
+    }
+    .star-rating span.active, .star-rating span.hover {
+        color: #ffc107;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-center align-items-center min-vh-100 py-4 bg-light">
+    <div class="card shadow-lg border-0 text-center animate-fade" style="max-width: 500px; width: 100%; border-radius: 20px;">
+        
+        <div class="card-body py-5 px-4">
+            <!-- Success Animation -->
+            <div class="success-animation mb-4">
+                <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                    <circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none" />
+                    <path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8" />
+                </svg>
+            </div>
+
+            <h3 class="fw-bold mt-4 text-primary">เลิกใช้งานสำเร็จ!</h3>
+            <p class="text-muted">ขอบคุณที่ใช้บริการ CKLab</p>
+
+            <hr class="my-4 opacity-10">
+
+            <!-- Django Form -->
+            <form method="POST">
+                {% csrf_token %}
+                
+                <p class="mb-2 fw-bold text-secondary">ความพึงพอใจของคุณ</p>
+                
+                <!-- Star Rating -->
+                <div class="star-rating mb-2" id="starContainer">
+                    <span data-value="1">★</span>
+                    <span data-value="2">★</span>
+                    <span data-value="3">★</span>
+                    <span data-value="4">★</span>
+                    <span data-value="5">★</span>
+                </div>
+                
+                <!-- Hidden input เพื่อเก็บค่าดาวส่งไปที่ views.py -->
+                <input type="hidden" name="rating" id="ratingInput" value="5">
+                <div id="rateText" class="fw-bold mb-4 text-success">ยอดเยี่ยม (5/5)</div>
+
+                <div class="feedback-box text-start mb-4">
+                    <label class="form-label small fw-bold text-muted ps-2">ข้อเสนอแนะเพิ่มเติม (ถ้ามี)</label>
+                    <textarea name="comment" id="comment" class="form-control rounded-3" rows="3" placeholder="พิมพ์ข้อความที่นี่..."></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 py-3 shadow-sm fw-bold rounded-pill">
+                    ส่งข้อมูลและกลับหน้าหลัก
+                </button>
+            </form>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const stars = document.querySelectorAll('.star-rating span');
+    const ratingInput = document.getElementById('ratingInput');
+    const rateText = document.getElementById('rateText');
+    let currentRating = 5;
+
+    const labels = {
+        1: 'ต้องปรับปรุง (1/5)',
+        2: 'พอใช้ (2/5)',
+        3: 'ปานกลาง (3/5)',
+        4: 'ดี (4/5)',
+        5: 'ยอดเยี่ยม (5/5)'
+    };
+
+    function updateStars(val) {
+        stars.forEach(s => {
+            const sVal = parseInt(s.getAttribute('data-value'));
+            if (sVal <= val) {
+                s.classList.add('active');
+            } else {
+                s.classList.remove('active');
+            }
+        });
+        rateText.innerText = labels[val];
+        ratingInput.value = val;
+    }
+
+    // เริ่มต้นให้เป็น 5 ดาว
+    updateStars(5);
+
+    stars.forEach(star => {
+        star.addEventListener('mouseover', function() {
+            const val = parseInt(this.getAttribute('data-value'));
+            stars.forEach(s => {
+                if (parseInt(s.getAttribute('data-value')) <= val) {
+                    s.classList.add('hover');
+                } else {
+                    s.classList.remove('hover');
+                }
+            });
+        });
+
+        star.addEventListener('mouseout', function() {
+            stars.forEach(s => s.classList.remove('hover'));
+        });
+
+        star.addEventListener('click', function() {
+            currentRating = parseInt(this.getAttribute('data-value'));
+            updateStars(currentRating);
+        });
+    });
+</script>
+{% endblock %}
