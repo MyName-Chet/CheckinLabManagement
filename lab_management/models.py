@@ -20,28 +20,31 @@ class Computer(models.Model):
 
 # เขมมิกา - สร้าง Model สำหรับบันทึกการใช้งานคอมพิวเตอร์ (UsageLog)
 class UsageLog(models.Model):
-    # 1. ข้อมูลผู้ใช้
-    user_id = models.CharField(max_length=50)        # รหัสนักศึกษา
+    # 1. ข้อมูลระบุตัวตนและประเภทผู้ใช้
+    user_id = models.CharField(max_length=50)        # รหัสนักศึกษา/บุคลากร
     user_name = models.CharField(max_length=100)      # ชื่อ-นามสกุล
-    department = models.CharField(max_length=100, null=True, blank=True) # คณะ/หน่วยงาน (เพิ่มเติมเพื่อให้รายงานสมบูรณ์)
-    user_year = models.CharField(max_length=10, null=True, blank=True)   # ชั้นปี (เพิ่มเติมตามความต้องการของคุณ)
+    user_type = models.CharField(max_length=20, choices=[('student', 'Student'), ('staff', 'Staff')], null=True) # สถานะผู้ใช้ (Student/Staff)
+    department = models.CharField(max_length=100, null=True, blank=True) # คณะ/หน่วยงาน
+    user_year = models.CharField(max_length=10, null=True, blank=True)   # ชั้นปี
 
     # 2. ข้อมูลอุปกรณ์และซอฟต์แวร์
-    computer = models.ForeignKey('Computer', on_delete=models.SET_NULL, null=True) # เชื่อมโยงกับเครื่องที่ใช้
-    # หมายเหตุ: Software สามารถดึงข้อมูลได้จากความสัมพันธ์ ManyToMany ใน Computer หรือจะเก็บชื่อ Software ที่ใช้หลักๆ ลงในฟิลด์นี้ก็ได้
-    software_used = models.CharField(max_length=100, null=True, blank=True) 
+    # เชื่อมโยงกับ Computer เพื่อเก็บหมายเลขเครื่อง (pc_id/name)
+    computer = models.ForeignKey('Computer', on_delete=models.SET_NULL, null=True) 
+    software_used = models.CharField(max_length=100, null=True, blank=True)       # Software ที่ใช้งาน
 
-    # 3. วันที่และเวลา
-    start_time = models.DateTimeField()               # วันที่และเวลาเริ่มใช้งาน
-    end_time = models.DateTimeField(auto_now_add=True) # วันที่และเวลาสิ้นสุด
+    # 3. วันที่และเวลา (รวมอยู่ในฟิลด์เดียวเพื่อความแม่นยำ)
+    # เก็บทั้งวันที่และเวลาเริ่ม
+    start_time = models.DateTimeField()               
+    # เก็บทั้งวันที่และเวลาสิ้นสุด (บันทึกอัตโนมัติเมื่อ Checkout)
+    end_time = models.DateTimeField(auto_now_add=True)
 
-    # 4. การประเมินและสถานะ
-    pc_status_at_end = models.CharField(max_length=20, null=True, blank=True) # สถานะ PC ตอนคืนเครื่อง (เช่น ปกติ/แจ้งซ่อม)
-    satisfaction_score = models.IntegerField(null=True, blank=True)           # คะแนนความพึงพอใจ 1-5
-    comment = models.TextField(null=True, blank=True)                         # ข้อเสนอแนะเพิ่มเติม
+    # 4. การประเมินผลและข้อเสนอแนะ
+    satisfaction_score = models.IntegerField(null=True, blank=True) # คะแนนความพึงพอใจ 1-5
+    comment = models.TextField(null=True, blank=True)               # ข้อเสนอแนะเพิ่มเติม
 
     class Meta:
-        ordering = ['-end_time'] # เรียงลำดับจากใหม่ไปเก่าเพื่อให้ดูรายงานง่ายขึ้น
+        ordering = ['-end_time'] # เรียงจากใหม่ไปเก่าสำหรับหน้า Report
 
     def __str__(self):
-        return f"{self.user_name} - {self.computer.name if self.computer else 'N/A'}"
+        # แสดงชื่อผู้ใช้ คู่กับหมายเลขเครื่อง PC
+        return f"{self.user_name} - {self.computer.name if self.computer else 'Unknown PC'}"
