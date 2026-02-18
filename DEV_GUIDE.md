@@ -16,7 +16,15 @@ CheckinLabManagement/
 │
 ├── lab_management/               # Main application
 │   ├── models.py                 # SiteConfig, Software, Booking, Status, Computer, UsageLog
-│   ├── views.py                  # Class-Based Views (CBV)
+│   ├── views/                    # Class-Based Views (CBV) — แยกไฟล์ตามผู้รับผิดชอบ
+│   │   ├── __init__.py           # Re-export ทุก class (urls.py ใช้งานได้เหมือนเดิม)
+│   │   ├── kiosk.py              # ปภังกร: IndexView, ConfirmView, TimerView, FeedbackView
+│   │   ├── monitor.py            # ธนสิทธิ์: AdminMonitorView, ApiMonitorDataView
+│   │   ├── booking.py            # อัษฎาวุธ: AdminBookingView, AdminImportBookingView
+│   │   ├── manage_pc.py          # ณัฐกรณ์: AdminManagePcView
+│   │   ├── software.py           # ลลิดา: AdminSoftwareView
+│   │   ├── report.py             # เขมมิกา: AdminReportView, AdminReportExportView
+│   │   └── config.py             # ภานุวัฒน์: AdminConfigView
 │   ├── urls.py                   # URL patterns ทั้งหมด
 │   ├── admin.py                  # Django admin registration
 │   ├── apps.py
@@ -183,7 +191,7 @@ python manage.py runserver
 
 ## 6. Views — Class-Based Views (CBV)
 
-โปรเจกต์ใช้ CBV ทั้งหมด อ้างอิงจาก `lab_management/views.py`
+โปรเจกต์ใช้ CBV ทั้งหมด แยกไฟล์ตามผู้รับผิดชอบใน `lab_management/views/`
 
 ### 6.1 Kiosk Views (ไม่ต้อง Login) — ผู้รับผิดชอบ: ปภังกร
 
@@ -281,40 +289,43 @@ FeedbackView (POST)
 
 ## 10. แนวทางการเพิ่ม View ใหม่ (สำหรับสมาชิกในทีม)
 
+> แต่ละคนแก้ไขเฉพาะไฟล์ `views/` ของตัวเองเท่านั้น
+
 ### ขั้นตอน
 
-**1) สร้าง View Class** ใน `lab_management/views.py`
+**1) เขียน logic** ในไฟล์ `views/` ของตัวเอง เช่น `views/booking.py`:
 
 ```python
-# ถ้าต้อง Login
-class AdminBookingView(LoginRequiredMixin, TemplateView):
-    template_name = 'cklab/admin/admin-booking.html'
+# views/booking.py
+from django.shortcuts import render, redirect
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views import View
+from ..models import Booking
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['bookings'] = Booking.objects.all()
-        return context
-```
-
-```python
-# ถ้ามี GET + POST
 class AdminBookingView(LoginRequiredMixin, View):
     def get(self, request):
-        # ...
-        return render(request, 'cklab/admin/admin-booking.html', context)
+        bookings = Booking.objects.all()
+        return render(request, 'cklab/admin/admin-booking.html', {'bookings': bookings})
 
     def post(self, request):
-        # ...
+        # บันทึกข้อมูล...
         return redirect('admin_booking')
 ```
 
-**2) เพิ่ม URL** ใน `lab_management/urls.py`
+**2) Export class** ใน `views/__init__.py` (ถ้าเพิ่ม class ใหม่):
+
+```python
+# views/__init__.py
+from .booking import AdminBookingView, AdminImportBookingView  # เพิ่ม class ใหม่ตรงนี้
+```
+
+**3) เพิ่ม URL** ใน `lab_management/urls.py` (ถ้ามี route ใหม่):
 
 ```python
 path('admin-portal/booking/', views.AdminBookingView.as_view(), name='admin_booking'),
 ```
 
-**3) สร้าง Template** ใน `templates/cklab/admin/`
+**4) สร้าง Template** ใน `templates/cklab/admin/`:
 
 ```html
 {% extends "cklab/base.html" %}
@@ -324,7 +335,7 @@ path('admin-portal/booking/', views.AdminBookingView.as_view(), name='admin_book
 {% endblock %}
 ```
 
-**4) สร้าง Model (ถ้าจำเป็น)** ใน `lab_management/models.py` แล้วรัน:
+**5) อัปเดต Model (ถ้าจำเป็น)** ใน `lab_management/models.py` แล้วรัน:
 
 ```powershell
 python manage.py makemigrations
