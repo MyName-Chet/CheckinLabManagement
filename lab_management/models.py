@@ -81,22 +81,6 @@ class CheckinRecord(models.Model):
         pc_name = self.computer.name if self.computer else "ไม่ระบุ"
         return f"ใช้งาน: {self.student_name} - {pc_name}"
 
-
-# 4. ตารางสำหรับเก็บประวัติการแจ้งเตือน (Notifications Feed)
-class ActivityLog(models.Model):
-    ACTION_CHOICES = [
-        ('CHECK_IN', 'เข้าใช้งาน'),
-        ('CHECK_OUT', 'ออกจากการใช้งาน'),
-        ('RESERVE', 'ทำการจองเครื่อง'),
-    ]
-    
-    action_type = models.CharField(max_length=20, choices=ACTION_CHOICES, verbose_name="ประเภทกิจกรรม")
-    message = models.CharField(max_length=255, verbose_name="รายละเอียดการแจ้งเตือน (เช่น นายสมชายเข้าใช้งาน PC-02)")
-    timestamp = models.DateTimeField(default=timezone.now, verbose_name="เวลาที่เกิดเหตุการณ์")
-
-    def __str__(self):
-        return f"[{self.get_action_type_display()}] {self.message} ({self.timestamp.strftime('%H:%M:%S')})"
-
 # เขมมิกา - สร้าง Model สำหรับบันทึกการใช้งานคอมพิวเตอร์ (UsageLog)
 class UsageLog(models.Model):
     # 1. ข้อมูลระบุตัวตนและประเภทผู้ใช้
