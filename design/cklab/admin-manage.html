@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>Manage PC</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    
+    <link href="main.css" rel="stylesheet">
+    <link href="admin.css" rel="stylesheet"> 
+    
+    <style>
+        .soft-card {
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            border: 2px solid #f8f9fa;
+        }
+        .soft-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            border-color: #dee2e6;
+        }
+        .soft-card.active {
+            border-color: #0d6efd !important;
+            background-color: #f0f8ff !important;
+        }
+        .soft-card.active .text-muted {
+            color: #0d6efd !important;
+        }
+        
+        /* CSS สำหรับสถานะ Locked */
+        .soft-card.locked {
+            background-color: #f8f9fa;
+            opacity: 0.5;
+            pointer-events: none;
+            border-color: #e9ecef;
+        }
+        .soft-card.locked .text-muted {
+            color: #adb5bd !important;
+        }
+        
+        .hidden-checkbox { display: none; }
+    </style>
+</head>
+<body class="bg-light">
+
+    <div class="d-flex">
+        <div id="sidebar-container">
+            <a href="#" class="sidebar-brand"><i class="bi bi-shield-lock me-2"></i>Admin Panel</a>
+            <nav class="mt-3">
+                <a href="admin-monitor.html" class="nav-link-admin"><i class="bi bi-grid-fill"></i> Monitor</a>
+                <a href="admin-manage.html" class="nav-link-admin active"><i class="bi bi-pc-display"></i> Manage PC</a>
+                <a href="admin-booking.html" class="nav-link-admin"><i class="bi bi-calendar-check-fill"></i> Booking</a>
+                <a href="admin-software.html" class="nav-link-admin"><i class="bi bi-robot"></i> Manage AI</a>
+                <a href="admin-config.html" class="nav-link-admin"><i class="bi bi-sliders"></i> System Config</a>
+                <a href="admin-report.html" class="nav-link-admin"><i class="bi bi-file-earmark-bar-graph-fill"></i> Reports</a>
+                <div class="border-top my-3 mx-3"></div>
+                <a href="#" onclick="adminLogout()" class="nav-link-admin text-danger"><i class="bi bi-box-arrow-right"></i> Logout</a>
+            </nav>
+        </div>
+
+        <div class="flex-grow-1 p-4" style="height: 100vh; overflow-y: auto;">
+            
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h3 class="fw-bold text-dark mb-1">🛠️ Manage PC & Status</h3>
+                    <p class="text-muted small mb-0">จัดการสถานะเครื่อง (Available, In-use, Reserved, Maintenance)</p>
+                </div>
+                <button onclick="openPcModal()" class="btn btn-success shadow-sm">
+                    <i class="bi bi-plus-lg me-1"></i> เพิ่มเครื่องใหม่
+                </button>
+            </div>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th class="ps-4 py-3">ID</th>
+                                    <th>ชื่อเครื่อง</th>
+                                    <th>สถานะ</th> 
+                                    <th>ประเภท</th>
+                                    <th>Software / AI ที่ติดตั้ง</th>
+                                    <th class="text-end pe-4">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pcTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="pcModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow rounded-4">
+                <div class="modal-header bg-primary text-white px-4 py-3 rounded-top-4">
+                    <h5 class="modal-title fw-bold" id="pcModalTitle"><i class="bi bi-pc-display me-2"></i>จัดการข้อมูลเครื่อง</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="pcForm">
+                        <input type="hidden" id="editPcId">
+                        
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-muted">ชื่อเครื่อง (PC Name)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-pc-display"></i></span>
+                                    <input type="text" id="editPcName" class="form-control" placeholder="PC-01" required>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-muted">ตั้งค่าสถานะ (Set Status)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-toggle-on"></i></span>
+                                    <select id="editPcStatus" class="form-select fw-bold">
+                                        <option value="available" class="text-success">🟢 ว่าง (Available)</option>
+                                        <option value="in_use" class="text-danger">🔴 ใช้งานอยู่ (In Use)</option>
+                                        <option value="reserved" class="text-warning">🟡 จองแล้ว (Reserved)</option>
+                                        <option value="maintenance" class="text-secondary">⚪ แจ้งซ่อม (Maintenance)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-12">
+                                <label class="form-label small fw-bold text-muted">ประเภทการใช้งาน (Type)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-cpu"></i></span>
+                                    <select id="editPcType" class="form-select" onchange="refreshCheckboxState()">
+                                        <option value="General">💻 ใช้งานทั่วไป (General)</option>
+                                        <option value="AI">🤖 AI Workstation (เฉพาะทาง)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted mb-2" for="softwareCheckboxList">
+                                เลือก Software / AI ที่ติดตั้งในเครื่องนี้
+                                <span class="fw-normal text-muted fst-italic ms-2 small">(เลือกได้สูงสุด 1 รายการ)</span>
+                            </label>
+                            <div class="card bg-white border shadow-sm rounded-3">
+                                <div class="card-body p-2 custom-scrollbar" style="max-height: 250px; overflow-y: auto;">
+                                    <div id="softwareCheckboxList" class="row g-2">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                            <button type="button" class="btn btn-light rounded-pill px-4 btn-sm" data-bs-dismiss="modal">ยกเลิก</button>
+                            <button type="button" onclick="savePC()" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm btn-sm">
+                                <i class="bi bi-save me-1"></i> บันทึกการเปลี่ยนแปลง
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="mock-db.js"></script>
+    <script src="admin-manage.js"></script>
+    <script>
+        function adminLogout() {
+            if(confirm('ยืนยันออกจากระบบ?')) {
+                DB.clearSession();
+                window.location.href = 'admin-login.html';
+            }
+        }
+    </script>
+</body>
+</html>

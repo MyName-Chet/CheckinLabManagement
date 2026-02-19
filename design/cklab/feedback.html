@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>ขอบคุณที่ใช้บริการ</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="main.css" rel="stylesheet">
+</head>
+<body>
+
+    <div class="d-flex justify-content-center align-items-center min-vh-100 py-4">
+        <div class="kiosk-card w-100 text-center animate-fade" style="max-width: 500px;">
+            
+            <div class="kiosk-body pt-5 pb-5">
+                
+                <div class="success-animation">
+                    <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                        <circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none" />
+                        <path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8" />
+                    </svg>
+                </div>
+
+                <h3 class="fw-bold mt-4" style="color: var(--primary);">เลิกใช้งานสำเร็จ!</h3>
+                <p class="text-muted">ขอบคุณที่ใช้บริการ CKLab</p>
+
+                <hr class="my-4 opacity-10">
+
+                <p class="mb-2 fw-bold text-secondary">ความพึงพอใจของคุณ</p>
+                
+                <div class="star-rating mb-2" id="starContainer">
+                    <span onclick="setRate(1)" onmouseover="hoverStar(1)" onmouseout="resetHover()">★</span>
+                    <span onclick="setRate(2)" onmouseover="hoverStar(2)" onmouseout="resetHover()">★</span>
+                    <span onclick="setRate(3)" onmouseover="hoverStar(3)" onmouseout="resetHover()">★</span>
+                    <span onclick="setRate(4)" onmouseover="hoverStar(4)" onmouseout="resetHover()">★</span>
+                    <span onclick="setRate(5)" onmouseover="hoverStar(5)" onmouseout="resetHover()">★</span>
+                </div>
+                <div id="rateText" class="fw-bold mb-4" style="color: #198754;">ยอดเยี่ยม (5/5)</div>
+
+                <div class="feedback-box">
+                    <label class="text-label text-start w-100 mb-2">ข้อเสนอแนะเพิ่มเติม (Optional)</label>
+                    <textarea id="comment" class="form-control" rows="3" placeholder="พิมพ์ข้อความที่นี่..."></textarea>
+                </div>
+
+                <button onclick="submitFeedback()" class="btn btn-primary w-100 py-3 mt-4 shadow-sm fw-bold">
+                    ส่งข้อมูลและกลับหน้าหลัก
+                </button>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="mock-db.js"></script>
+    <script src="feedback.js"></script>
+</body>
+</html>
