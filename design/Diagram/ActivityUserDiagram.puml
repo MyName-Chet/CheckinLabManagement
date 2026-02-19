@@ -1,0 +1,62 @@
+@startuml
+title Activity Diagram: CKLab User Flow (User & Admin Only)
+
+skinparam activity {
+  BackgroundColor #F4F4F4
+  BorderColor #333333
+  FontName Tahoma
+}
+
+skinparam swimlane {
+  TitleFontSize 14
+  BorderColor Black
+}
+
+|User (ผู้ใช้งาน)|
+|Admin (ผู้ดูแลระบบ)|
+
+|User (ผู้ใช้งาน)|
+start
+:เข้าสู่หน้าจอเช็คอิน;
+
+partition "1. Check-in Module" {
+  :เลือกประเภทผู้ใช้งาน;
+  
+  if (ประเภทผู้ใช้งาน?) then (Member)
+    :กรอกรหัส UBU Account;
+    if (ตรวจสอบรหัสผ่าน) then (ไม่ถูกต้อง)
+      stop
+    else (ถูกต้อง)
+      :ยืนยันตัวตนสำเร็จ;
+    endif
+  else (Guest)
+    :เลือก Guest Login;
+  endif
+  
+  :กดยืนยันการเข้าใช้งาน (Confirm);
+}
+
+partition "2. Active Session Module" {
+  :เข้าใช้งานเครื่องคอมพิวเตอร์;
+  :ดูเวลาที่ใช้ไป;
+}
+
+if (สิ้นสุดการใช้งานโดย?) then (ผู้ใช้กดออกเอง)
+  |User (ผู้ใช้งาน)|
+  :กดปุ่ม Logout / เลิกใช้งาน;
+  
+  partition "4. Feedback Module" {
+    :ให้คะแนนและเสนอแนะ (Rate);
+    :กดบันทึก (Save);
+  }
+
+else (ผู้ใช้ลืมล็อคเอ้าท์)
+  |Admin (ผู้ดูแลระบบ)|
+  :กดปุ่ม "เช็คเอ้าท์แทน"\n(Force Logout);
+endif
+
+|User (ผู้ใช้งาน)|
+:กลับสู่หน้าแรก (Home);
+stop
+
+@enduml

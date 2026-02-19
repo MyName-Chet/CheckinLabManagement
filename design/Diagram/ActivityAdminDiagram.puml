@@ -1,0 +1,136 @@
+@startuml
+title Activity Diagram: CKLab Admin Workflow (Menu Based)
+
+skinparam activity {
+  BackgroundColor #E0F2F7
+  BorderColor #005662
+  FontName Tahoma
+}
+
+start
+:เข้าหน้าเว็บไซต์ Admin Login;
+
+partition "1. Login (UC-06)" {
+  repeat
+    :กรอก Username/Password;
+    :ตรวจสอบสิทธิ์;
+  repeat while (รหัสถูกต้อง?) is (ไม่ถูกต้อง)
+  -> ถูกต้อง;
+  :สร้าง Admin Session;
+}
+
+repeat
+  :เลือกเมนูจากแถบด้านซ้าย (Sidebar Menu);
+  switch (เลือกเมนูอะไร?)
+  
+  case ( Monitor )
+    partition "2. Monitor (ตรวจสอบสถานะ)" {
+      :ดูผังที่นั่งเรียลไทม์ (View Map);
+      if (ต้องการจัดการสถานะ?) then (Yes)
+        split
+          :<b>[Check-in]</b>;
+          :ระบุรหัสผู้ใช้ -> Admin Check-in;
+          :อัปเดตสถานะ "In Use";
+        split again
+          :<b>[Maintenance]</b>;
+          :เลือกเครื่อง -> Set Maintenance;
+          :อัปเดตสถานะ "แจ้งซ่อม";
+        split again
+          :<b>[Force Logout]</b>;
+          :เลือกเครื่อง -> Force Logout;
+          :เคลียร์สถานะ;
+        end split
+      else (No)
+      endif
+    }
+    
+  case ( Manage PC )
+    partition "3. Manage PC (จัดการเครื่องคอมฯ)" {
+      :ดูรายการเครื่องทั้งหมด (View List);
+      split
+        :<b>[Search]</b>;
+        :Search PC;
+      split again
+        :<b>[Add/Edit PC]</b>;
+        :กรอกข้อมูลเครื่อง (IP, Spec, ID);
+        :เลือก Software ที่ติดตั้ง;
+        :บันทึกข้อมูล (Save PC Data);
+      end split
+    }
+    
+  case ( Booking )
+    partition "4. Booking (จัดการการจอง)" {
+      :ดูตารางการจอง (View Schedule);
+      split
+        :<b>[Add Booking]</b>;
+        :ระบุวันเวลา -> ตรวจสอบห้องว่าง;
+        if (ว่าง?) then (Yes)
+          :เลือกเครื่อง -> Confirm;
+        else (No)
+          :แจ้งเตือน;
+        endif
+      split again
+        :<b>[Import CSV]</b>;
+        :เลือกไฟล์ CSV -> Upload;
+        :ประมวลผลข้อมูล;
+      split again
+        :<b>[Cancel Booking]</b>;
+        :เลือกรายการ -> ยกเลิกการจอง;
+      end split
+    }
+    
+  case ( Manage AI )
+    partition "5. Manage AI/Software" {
+      note right: เมนูนี้ใช้จัดการรายการ Software\nหรือ AI Models ในระบบ
+      :ดูรายการ Software/AI (View List);
+      split
+        :<b>[Search]</b>;
+        :ค้นหาชื่อโปรแกรม;
+      split again
+        :<b>[Add/Edit]</b>;
+        :เพิ่มชื่อ Software/Version;
+        :กำหนดรายละเอียดสิทธิ์;
+        :บันทึกข้อมูล (Save Data);
+      end split
+    }
+    
+  case ( System Config )
+    partition "6. System Config (ตั้งค่าระบบ)" {
+      :แสดงหน้าตั้งค่ารวม (Single Page);
+      split
+        :<b>[General Settings]</b>;
+        :แก้ไขชื่อห้อง/เวลาเปิด-ปิด;
+        :ตั้งกฏการจอง (Booking Rules);
+      split again
+        :<b>[Admin Management]</b>;
+        :ดูรายชื่อแอดมิน;
+        :เพิ่ม/ลบ/แก้ไขสิทธิ์ (Manage Role);
+      end split
+      :กดบันทึกการเปลี่ยนแปลง (Save Config);
+      :อัปเดต Database;
+    }
+    
+  case ( Reports )
+    partition "7. Reports (รายงานผล)" {
+      :ดู Dashboard สรุปผล;
+      split
+        :กรองช่วงเวลา (Filter Date);
+      split again
+        :Export Log (CSV/Excel);
+      split again
+        :Print Report (PDF);
+      end split
+    }
+    
+  endswitch
+  
+repeat while (ต้องการทำงานต่อ?) is (Yes)
+-> No (Logout);
+
+partition "8. Logout" {
+  :ออกจากระบบ;
+  :ล้าง Session;
+}
+stop
+
+@enduml

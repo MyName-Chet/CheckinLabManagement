@@ -1,0 +1,66 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+' --- Actors ---
+actor "ผู้ใช้ทั่วไป (General User)" as User
+actor "นักศึกษา (Student)" as Student
+actor "บุคลากร (Staff)" as Staff
+actor "บุคคลภายนอก (Guest)" as Guest
+actor "ผู้ดูแลระบบ (Admin)" as Admin
+
+' --- Generalization (การสืบทอด) ---
+Student --|> User
+Staff --|> User
+Guest --|> User
+
+rectangle "ระบบบริหารจัดการห้องปฏิบัติการ (CKLab Management System)" {
+    ' --- User Use Cases ---
+    usecase "UC-01: เช็คอินเข้าใช้งานสำหรับสมาชิกห้องสมุด\n(Member checkin)" as UC_MemberChk
+    usecase "UC-02: เช็คอินเข้าใช้งานสำหรับบุคคลภายนอก (External checkin)" as UC_ExternalChk
+    usecase "UC-04: ใช้งานและดูเวลา (Active Session)" as UC_Session
+    usecase "UC-05: เช็คเอาท์\n(Check-out )" as UC_Checkout
+    usecase "UC_03: ประเมินความพึงพอใจ\n (Feedback)" as UC_Feedback
+    ' --- Admin Use Cases ---
+    usecase "UC-06: เข้าสู่ระบบผู้ดูแล\n(Admin Login)" as UC_AdminLogin
+    usecase "UC-07: ตรวจสอบสถานะเครื่อง\n(Monitor Dashboard)" as UC_Monitor
+    usecase "UC-08: เช็คเอาท์แทนผู้ใช้งาน\n(Force Logout)" as UC_ForceLogout
+    usecase "UC-09: จัดการเครื่องคอมพิวเตอร์\n(Manage PC)" as UC_ManagePC
+    usecase "UC-10: จัดการการจอง\n(Manage Booking)" as UC_ManageBooking
+    usecase "UC-11: จัดการ Software & AI\n(Manage Software)" as UC_ManageSoft
+    usecase "UC-12: ดูรายงานสถิติ\n(View Reports)" as UC_Report
+    usecase "UC-13: ตั้งค่าระบบ\n(System Config)" as UC_Config
+    usecase "UC-14: ออกจากระบบ\n (Logout)" as UC_AdminLogout
+   }
+
+' --- Relationships (ความสัมพันธ์) ---
+
+' User Relationships
+Staff -- UC_MemberChk
+Student -- UC_MemberChk
+
+Guest -- UC_ExternalChk
+User -- UC_Session
+User -- UC_Checkout
+
+' Admin Relationships
+Admin -- UC_Monitor
+Admin -- UC_ManagePC
+Admin -- UC_ManageBooking
+Admin -- UC_ManageSoft
+Admin -- UC_Report
+Admin -- UC_Config
+Admin -- UC_AdminLogout
+' Admin Login required
+UC_Checkout ..> UC_Feedback: <<include>>
+UC_Monitor ..> UC_AdminLogin : <<include>>
+UC_ManagePC ..> UC_AdminLogin : <<include>>
+UC_ManageBooking ..> UC_AdminLogin : <<include>>
+UC_ManageSoft ..> UC_AdminLogin : <<include>>
+UC_Report ..> UC_AdminLogin : <<include>>
+UC_Config ..> UC_AdminLogin : <<include>>
+
+' Force Logout is an extension of Monitoring
+UC_Monitor <.. UC_ForceLogout : <<extend>>
+
+@enduml
