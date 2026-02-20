@@ -1,7 +1,12 @@
 # ลลิดา — Software
+
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views import View
-from ..models import Software
+
+# TODO: import render, redirect จาก django.shortcuts
+
+# TODO: Models ที่ต้องใช้จาก ..models
+#   - Software  → ดึงรายการ Software ทั้งหมด, เพิ่ม/แก้ไข/ลบ Software
 
 
 class AdminSoftwareView(LoginRequiredMixin, View):

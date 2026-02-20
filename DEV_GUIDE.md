@@ -38,6 +38,9 @@ CheckinLabManagement/
 │   ├── admin.py                  # Django admin registration
 │   ├── apps.py
 │   ├── tests.py
+│   ├── management/
+│   │   └── commands/
+│   │       └── seed_data.py      # `python manage.py seed_data` — สร้างข้อมูลเริ่มต้น (Software, Computer, UsageLog, Booking, superuser)
 │   ├── migrations/
 │   ├── templates/cklab/
 │   │   ├── base.html             # Base template (Bootstrap 5 + Kanit font)
@@ -128,6 +131,8 @@ cp .env.example .env
 
 ## 4. Quick Start
 
+### 4.1 ติดตั้งและเริ่มต้น
+
 ```powershell
 # 1. ติดตั้ง dependencies
 uv venv
@@ -137,15 +142,17 @@ uv pip install django psycopg2-binary python-dotenv
 # 2. ตั้งค่า environment
 cp .env.example .env          # แก้ค่าใน .env ตามต้องการ
 
-# 3. รัน database
+# 3. รัน database (PostgreSQL via Docker)
 docker compose up -d
 
-# 4. migrate & สร้าง superuser
+# 4. สร้าง migration จาก models.py แล้ว apply เข้า database
 python manage.py makemigrations
 python manage.py migrate
-python manage.py createsuperuser
 
-# 5. รัน server
+# 5. seed ข้อมูลตัวอย่าง (Software, Computer, UsageLog, Booking + superuser)
+python manage.py seed_data    # admin / admin1234
+
+# 6. รัน server
 python manage.py runserver
 ```
 
@@ -153,6 +160,67 @@ python manage.py runserver
 - **Kiosk (User):** `http://localhost:8000/`
 - **Admin Login:** `http://localhost:8000/admin-portal/login/`
 - **Django Admin:** `http://localhost:8000/django-admin/`
+
+---
+
+### 4.2 แนวทางการเริ่มต้นพัฒนา (สำหรับนักศึกษา)
+
+> **เป้าหมาย:** เติม logic ใน `views/` ของตัวเองให้ครบ แต่ละ method ปัจจุบันมีแค่ `pass`
+
+#### ขั้นตอนที่แนะนำ
+
+**ขั้นที่ 1 — ทำความเข้าใจ Model ที่ต้องใช้**
+
+เปิดไฟล์ `views/` ของตัวเอง อ่าน comment `# TODO: Models ที่ต้องใช้` แล้วเปิด `models.py` ดู field ที่มี
+
+```python
+# ตัวอย่าง: ถ้าต้องการดึงรายการ Computer ทั้งหมด
+from ..models import Computer
+computers = Computer.objects.all()
+```
+
+**ขั้นที่ 2 — เพิ่ม import ที่จำเป็น**
+
+ไฟล์แต่ละไฟล์มี comment บอกไว้แล้วว่าต้องใช้อะไร:
+
+```python
+# ตัวอย่าง imports ที่ใช้บ่อย
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import JsonResponse, HttpResponse
+from ..models import Computer, Software   # เปลี่ยนตาม TODO ในไฟล์ตัวเอง
+```
+
+**ขั้นที่ 3 — เขียน GET: ดึงข้อมูลแล้ว render template**
+
+```python
+def get(self, request):
+    computers = Computer.objects.all()
+    return render(request, 'cklab/admin/admin-monitor.html', {'computers': computers})
+```
+
+**ขั้นที่ 4 — เขียน POST: รับข้อมูลจาก Form แล้วบันทึก**
+
+```python
+def post(self, request):
+    # รับค่าจาก form
+    pc_id = request.POST.get('pc_id')
+    # บันทึก / อัปเดต database
+    Computer.objects.filter(pk=pc_id).update(status='IN_USE')
+    return redirect('admin_monitor')
+```
+
+**ขั้นที่ 5 — ถ้า model มีการเปลี่ยนแปลง ให้รัน migration ใหม่**
+
+```powershell
+python manage.py makemigrations
+python manage.py migrate
+```
+
+**ขั้นที่ 6 — รัน tests เพื่อตรวจสอบว่าไม่ได้ทำให้อะไรพัง**
+
+```powershell
+DJANGO_SETTINGS_MODULE=cklab_project.settings_test python manage.py test lab_management
+```
 
 ---
 
@@ -208,7 +276,7 @@ python manage.py runserver
 | `start_time` | `DateTimeField` | เวลาเริ่มใช้งาน |
 | `end_time` | `DateTimeField` | เวลาสิ้นสุดการใช้งาน |
 | `booking_date` | `DateTimeField` | วันที่ทำการจอง |
-| `status` | `CharField` | `PENDING` / `APPROVED` / `REJECTED` |
+| `status` | `CharField` | `APPROVED` (การจองทุกรายการจะถูกอนุมัติแล้ว ไม่มี PENDING/REJECTED) |
 | `created_at` | `DateTimeField` | เวลาที่ทำรายการ |
 
 ### Computer (ผู้รับผิดชอบ: ณัฐกรณ์ + ธนสิทธิ์)
@@ -348,6 +416,38 @@ settings.py:
 
 ---
 
+## 8.1 Admin Session Flow (Login → ใช้งาน → Logout)
+
+```
+LoginView (POST) — /admin-portal/login/
+  → authenticate username / password
+  → ถ้าสำเร็จ → บันทึก AdminonDuty:
+      AdminonDuty.admin_on_duty  = request.user.get_full_name()
+      AdminonDuty.contact_phone  = (ค่าที่กรอกใน login form หรือดึงจาก profile)
+      AdminonDuty.contact_email  = request.user.email
+  → SiteConfig.admin_on_duty = AdminonDuty ที่เพิ่งอัปเดต
+  → redirect → AdminMonitorView
+
+  [ระหว่างใช้งาน Admin Portal]
+  → AdminConfigView (GET/POST) — /admin-portal/config/
+      → แก้ไข SiteConfig (lab_name, is_open, announcement ฯลฯ)
+      → แก้ไข AdminonDuty (ชื่อผู้ดูแล, เบอร์โทร, อีเมล)
+
+LogoutView (POST) — /admin-portal/logout/
+  → ล้างข้อมูล AdminonDuty ที่ผูกกับ SiteConfig:
+      AdminonDuty.admin_on_duty  = None
+      AdminonDuty.contact_phone  = None
+      AdminonDuty.contact_email  = None
+  → Django logout (session.flush())
+  → redirect → LoginView
+```
+
+> **หมายเหตุ implementation (views/auth.py):**
+> - `LoginView` — override `form_valid()` เพื่อ update `AdminonDuty` หลัง super() ผ่าน
+> - `LogoutView` — override `dispatch()` เพื่อ clear `AdminonDuty` ก่อน super() logout
+
+---
+
 ## 9. Session Flow (Kiosk)
 
 ```
@@ -357,11 +457,25 @@ IndexView (GET)
 CheckinView (POST) — /checkin/<pc_id>/
   → รับ student_id / ชื่อผู้ใช้
   → บันทึก Computer.status = 'IN_USE'
-  → เก็บ session: session_pc_id, session_user_name, session_start_time
+  → ค้นหา Booking APPROVED ถัดไปของ PC นี้ (start_time >= now)
+  → เก็บ session:
+      session["pc_id"]            = pc_id
+      session["user_name"]        = user_name
+      session["start_time"]       = now.isoformat()
+      session["next_booking_end"] = booking.end_time.isoformat()  # หรือ None
   → redirect → StatusView/<pc_id>/
 
 StatusView (GET) — /status/<pc_id>/
-  → อ่าน session → แสดงสถานะการใช้งานปัจจุบัน
+  → อ่าน session → ส่ง next_booking_end ไปยัง template
+  → template ฝัง djangoData = { startTime, nextBookingEnd } ให้ timer.js
+
+  [timer.js — client side]
+  → นับ elapsed time ขึ้น (Usage Time)
+  → ถ้ามี nextBookingEnd:
+      → คำนวณ remainingMs = nextBookingEnd - now
+      → ถ้า remainingMs <= 15 นาที แสดง alertBox แจ้งเตือน
+      → ถ้า remainingMs <= 5 นาที แสดง alertBox พร้อมนับถอยหลัง
+      → ถ้า remainingMs <= 0 → แสดง modal บังคับ "กรุณาลุกจากที่นั่ง"
 
 CheckoutView (POST) — /checkout/<pc_id>/
   → ยืนยัน Check-out
@@ -373,6 +487,15 @@ FeedbackView (POST) — /feedback/<pc_id>/<software_id>/
   → session.flush()
   → redirect → IndexView
 ```
+
+### Session keys ที่ใช้
+
+| Key | ค่า | หมายเหตุ |
+|:----|:----|:---------|
+| `pc_id` | `int` | PK ของ Computer |
+| `user_name` | `str` | ชื่อผู้ใช้ |
+| `start_time` | ISO string | เวลา Check-in |
+| `next_booking_end` | ISO string / `None` | เวลาสิ้นสุดของ Booking ถัดไป ใช้โดย timer.js เพื่อแจ้งเตือน |
 
 ---
 
@@ -507,7 +630,7 @@ python manage.py migrate
 
 ---
 
-## 12. CBV Cheat Sheet
+## 13. CBV Cheat Sheet
 
 | ต้องการ | ใช้ Base Class | ตัวอย่าง |
 |:---|:---|:---|
@@ -520,7 +643,7 @@ python manage.py migrate
 
 ---
 
-## 13. Database (Docker)
+## 14. Database (Docker)
 
 ```yaml
 # docker-compose.yml
@@ -552,7 +675,7 @@ docker ps                      # เช็คสถานะ container
 
 ---
 
-## 14. Git Workflow
+## 15. Git Workflow
 
 ```powershell
 # ดึงโค้ดล่าสุด

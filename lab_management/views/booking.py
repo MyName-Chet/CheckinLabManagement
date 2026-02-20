@@ -1,7 +1,13 @@
 # อัษฎาวุธ — Booking
+
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views import View
-from ..models import Booking
+
+# TODO: import render, redirect จาก django.shortcuts
+
+# TODO: Models ที่ต้องใช้จาก ..models
+#   - Booking   → ดึงรายการจอง, สร้าง/แก้ไข/ลบการจอง
+#   - Computer  → อัปเดต status เป็น RESERVED เมื่อมีการจอง, AVAILABLE เมื่อยกเลิก
 
 
 class AdminBookingView(LoginRequiredMixin, View):
