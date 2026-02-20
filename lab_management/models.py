@@ -46,10 +46,39 @@ class Software(models.Model):
         return f"{self.name} ({self.version})"
 # อัษฎาวุธ - สร้าง Model สำหรับการจองคอมพิวเตอร์ (Booking) เพื่อเก็บข้อมูลการจองของผู้ใช้
 class Booking(models.Model):
-    pass
+    STATUS_CHOICES = [
+        ('PENDING', 'รออนุมัติ'),
+        ('APPROVED', 'อนุมัติแล้ว'),
+        ('REJECTED', 'ไม่อนุมัติ/ยกเลิก'),
+    ]
+
+    # ใช้รหัสนักศึกษาและชื่อเหมือนตาราง CheckinRecord ของเพื่อน
+    student_id = models.CharField(max_length=20, verbose_name="รหัสนักศึกษา")
+    student_name = models.CharField(max_length=100, verbose_name="ชื่อ-นามสกุลผู้จอง")
+    
+    # เชื่อมกับเครื่องคอมพิวเตอร์
+    computer = models.ForeignKey('Computer', on_delete=models.CASCADE, verbose_name="เครื่องคอมพิวเตอร์")
+    
+    # เวลาจอง
+    start_time = models.DateTimeField(verbose_name="เวลาเริ่มใช้งาน")
+    end_time = models.DateTimeField(verbose_name="เวลาสิ้นสุดการใช้งาน")
+    
+    # สถานะและการบันทึกเวลา (ใช้ default=timezone.now เหมือนตาราง ActivityLog)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING', verbose_name="สถานะการจอง")
+    created_at = models.DateTimeField(default=timezone.now, verbose_name="เวลาที่ทำรายการ")
+
+    def __str__(self):
+        return f"การจอง: {self.student_name} - {self.computer.name} ({self.get_status_display()})"
+
+
 # ณัฐกรณ์ - สร้าง Model สำหรับสถานะเครื่องคอมพิวเตอร์ (Status) เพื่อระบุว่าเครื่องนั้นอยู่ในสถานะอะไร
 class Status(models.Model):
-    pass
+
+    name = models.CharField(max_length=50, unique=True, verbose_name="ชื่อสถานะ")
+    description = models.TextField(blank=True, null=True, verbose_name="รายละเอียดเพิ่มเติม")
+
+    def __str__(self):
+        return self.name
 
 # ธนสิทธิ์ - สร้าง Model สำหรับคอมพิวเตอร์ (Computer) เพื่อเก็บข้อมูลสถานะและการใช้งานของคอมพิวเตอร์แต่ละเครื่องในห้องปฏิบัติการ
 class Computer(models.Model):
