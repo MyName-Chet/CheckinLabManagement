@@ -1,4 +1,123 @@
 {% extends "cklab/base.html" %}
 {% block title %}จัดการการจอง{% endblock %}
 {% block content %}
+<div class="container-fluid p-4">
+	<div class="d-flex justify-content-between align-items-center mb-4">
+		<div>
+			<h3 class="fw-bold text-primary mb-1">📅 Booking Management</h3>
+			<p class="text-muted small mb-0">ตารางการจองและจัดการรายการจองจากฐานข้อมูล</p>
+		</div>
+	</div>
+
+	<div class="row g-4">
+		<div class="col-12 col-xl-4">
+			<div class="card border-0 shadow-sm">
+				<div class="card-header bg-primary text-white fw-bold">
+					เพิ่มการจองใหม่
+				</div>
+				<div class="card-body">
+					<form method="post">
+						{% csrf_token %}
+
+						{% if form.non_field_errors %}
+							<div class="alert alert-danger py-2" role="alert">
+								{% for error in form.non_field_errors %}
+									<div>{{ error }}</div>
+								{% endfor %}
+							</div>
+						{% endif %}
+
+						<div class="mb-3">
+							<label class="form-label fw-bold text-muted small" for="id_student_id">ผู้จอง (รหัสนักศึกษา)</label>
+							{{ form.student_id }}
+							{% if form.student_id.errors %}
+								<div class="text-danger small mt-1">{{ form.student_id.errors|join:", " }}</div>
+							{% endif %}
+						</div>
+
+						<div class="mb-3">
+							<label class="form-label fw-bold text-muted small" for="id_computer">เลือกเครื่อง (PC)</label>
+							{{ form.computer }}
+							{% if form.computer.errors %}
+								<div class="text-danger small mt-1">{{ form.computer.errors|join:", " }}</div>
+							{% endif %}
+						</div>
+
+						<div class="mb-3">
+							<label class="form-label fw-bold text-muted small" for="id_start_time">เวลาเริ่มใช้งาน</label>
+							{{ form.start_time }}
+							{% if form.start_time.errors %}
+								<div class="text-danger small mt-1">{{ form.start_time.errors|join:", " }}</div>
+							{% endif %}
+						</div>
+
+						<div class="mb-3">
+							<label class="form-label fw-bold text-muted small" for="id_end_time">เวลาสิ้นสุดการใช้งาน</label>
+							{{ form.end_time }}
+							{% if form.end_time.errors %}
+								<div class="text-danger small mt-1">{{ form.end_time.errors|join:", " }}</div>
+							{% endif %}
+						</div>
+
+						<div class="mb-4">
+							<label class="form-label fw-bold text-muted small" for="id_status">สถานะ</label>
+							{{ form.status }}
+							{% if form.status.errors %}
+								<div class="text-danger small mt-1">{{ form.status.errors|join:", " }}</div>
+							{% endif %}
+						</div>
+
+						<button type="submit" class="btn btn-primary w-100 fw-bold">
+							บันทึกการจอง
+						</button>
+					</form>
+				</div>
+			</div>
+		</div>
+
+		<div class="col-12 col-xl-8">
+			<div class="card border-0 shadow-sm">
+				<div class="card-header bg-light fw-bold">รายการจองทั้งหมด</div>
+				<div class="card-body p-0">
+					<div class="table-responsive">
+						<table class="table table-hover align-middle mb-0">
+							<thead>
+								<tr>
+									<th class="ps-3">ผู้จอง</th>
+									<th>เครื่อง</th>
+									<th>เวลาเริ่ม</th>
+									<th>เวลาสิ้นสุด</th>
+									<th>สถานะ</th>
+								</tr>
+							</thead>
+							<tbody>
+								{% for booking in bookings %}
+									<tr>
+										<td class="ps-3">{{ booking.student_id }}</td>
+										<td>{{ booking.computer.name|default:"-" }}</td>
+										<td>{{ booking.start_time|date:"d/m/Y H:i" }}</td>
+										<td>{{ booking.end_time|date:"d/m/Y H:i" }}</td>
+										<td>
+											{% if booking.status == "APPROVED" %}
+												<span class="badge bg-success">อนุมัติแล้ว</span>
+											{% elif booking.status == "PENDING" %}
+												<span class="badge bg-warning text-dark">รออนุมัติ</span>
+											{% else %}
+												<span class="badge bg-danger">ไม่อนุมัติ/ยกเลิก</span>
+											{% endif %}
+										</td>
+									</tr>
+								{% empty %}
+									<tr>
+										<td colspan="5" class="text-center text-muted py-4">ยังไม่มีข้อมูลการจอง</td>
+									</tr>
+								{% endfor %}
+							</tbody>
+						</table>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
 {% endblock %}

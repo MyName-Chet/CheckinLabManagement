@@ -1,21 +1,52 @@
 # อัษฎาวุธ — Booking
 
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.shortcuts import redirect, render
 from django.views import View
 
-# TODO: import render, redirect จาก django.shortcuts
-
-# TODO: Models ที่ต้องใช้จาก ..models
-#   - Booking   → ดึงรายการจอง, สร้าง/แก้ไข/ลบการจอง
-#   - Computer  → อัปเดต status เป็น RESERVED เมื่อมีการจอง, AVAILABLE เมื่อยกเลิก
+from ..forms.booking import BookingForm
+from ..models import Booking, Computer
 
 
 class AdminBookingView(LoginRequiredMixin, View):
     def get(self, request):
-        pass
+        bookings = Booking.objects.select_related("computer").order_by("-start_time")
+        form = BookingForm()
+        return render(
+            request,
+            "cklab/admin/admin-booking.html",
+            {
+                "bookings": bookings,
+                "form": form,
+            },
+        )
 
     def post(self, request):
-        pass
+        form = BookingForm(request.POST)
+        bookings = Booking.objects.select_related("computer").order_by("-start_time")
+
+        if not form.is_valid():
+            return render(
+                request,
+                "cklab/admin/admin-booking.html",
+                {
+                    "bookings": bookings,
+                    "form": form,
+                },
+            )
+
+        booking = Booking.objects.create(
+            student_id=form.cleaned_data["student_id"],
+            computer=form.cleaned_data["computer"],
+            start_time=form.cleaned_data["start_time"],
+            end_time=form.cleaned_data["end_time"],
+            status=form.cleaned_data["status"],
+        )
+
+        if booking.computer and booking.status in ["PENDING", "APPROVED"]:
+            Computer.objects.filter(pk=booking.computer_id).update(status="RESERVED")
+
+        return redirect("admin_booking")
 
 
 class AdminBookingDetailView(LoginRequiredMixin, View):
