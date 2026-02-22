@@ -11,8 +11,9 @@ from django.http import JsonResponse
 # ปิดการแจ้งเตือนเรื่อง SSL เผื่อกรณี API มหาลัยใช้ Certificate ภายใน
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# Models ที่ต้องใช้
+# Models และ Forms ที่ต้องใช้
 from lab_management.models import Computer, Software, SiteConfig, Booking, UsageLog
+from lab_management.forms.kiosk import CheckinForm, FeedbackForm
 
 
 class IndexView(View):
@@ -130,22 +131,30 @@ class CheckinView(View):
         if (config and not config.is_open) or computer.status not in ['AVAILABLE', 'RESERVED']:
             return redirect(f"{reverse('kiosk_index')}?pc={pc_id}&error=unavailable")
 
-        # สร้างประวัติการใช้งาน
-        usage_log = UsageLog.objects.create(
-            user_id=request.POST.get('user_id'),
-            user_name=request.POST.get('user_name'),
-            user_type=request.POST.get('user_type', 'student'),
-            department=request.POST.get('department', ''),
-            user_year=request.POST.get('user_year', ''),  
-            computer=computer.name,
-            Software=computer.Software.name if computer.Software else None
-        )
+        # เรียกใช้ CheckinForm เพื่อกรองและตรวจสอบข้อมูลที่รับมา
+        form = CheckinForm(request.POST)
+        if form.is_valid():
+            cleaned_data = form.cleaned_data
+            
+            # สร้างประวัติการใช้งานด้วยข้อมูลที่ผ่าน Form Validation แล้ว
+            usage_log = UsageLog.objects.create(
+                user_id=cleaned_data.get('user_id'),
+                user_name=cleaned_data.get('user_name'),
+                user_type=cleaned_data.get('user_type', 'student'),
+                department=cleaned_data.get('department', ''),
+                user_year=cleaned_data.get('user_year', ''),  
+                computer=computer.name,
+                Software=computer.Software.name if computer.Software else None
+            )
 
-        # อัปเดตสถานะเครื่อง
-        computer.status = 'IN_USE'
-        computer.save()
+            # อัปเดตสถานะเครื่อง
+            computer.status = 'IN_USE'
+            computer.save()
 
-        return render(request, 'cklab/kiosk/timer.html', {'computer': computer, 'log_id': usage_log.id})
+            return render(request, 'cklab/kiosk/timer.html', {'computer': computer, 'log_id': usage_log.id})
+        else:
+            # หากข้อมูลที่ส่งมาไม่ถูกต้อง ให้เด้งกลับไปหน้าแรก
+            return redirect(f"{reverse('kiosk_index')}?pc={pc_id}&error=invalid_data")
 
 
 class CheckoutView(View):
@@ -176,17 +185,21 @@ class FeedbackView(View):
         return render(request, 'cklab/kiosk/feedback.html', context)
 
     def post(self, request, pc_id, software_id):
-        score = request.POST.get('satisfaction_score')
-        comment = request.POST.get('comment', '')
+        # เรียกใช้ FeedbackForm เพื่อกรองข้อมูล
+        form = FeedbackForm(request.POST)
+        
+        if form.is_valid():
+            score = form.cleaned_data.get('satisfaction_score')
+            comment = form.cleaned_data.get('comment', '')
 
-        try:
-            usage_log = UsageLog.objects.get(id=software_id)
-            if score:
-                usage_log.satisfaction_score = int(score)
-            if comment:
-                usage_log.comment = comment
-            usage_log.save()
-        except UsageLog.DoesNotExist:
-            pass
+            try:
+                usage_log = UsageLog.objects.get(id=software_id)
+                if score:
+                    usage_log.satisfaction_score = score
+                if comment:
+                    usage_log.comment = comment
+                usage_log.save()
+            except UsageLog.DoesNotExist:
+                pass
 
         return redirect(f"{reverse('kiosk_index')}?pc={pc_id}")
