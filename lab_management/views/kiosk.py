@@ -1,13 +1,15 @@
-# ปภังกร — User / Kiosk Side
-
 import json
 import base64
 import requests
+import urllib3
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.views import View
 from django.utils import timezone
 from django.http import JsonResponse
+
+# ปิดการแจ้งเตือนเรื่อง SSL เผื่อกรณี API มหาลัยใช้ Certificate ภายใน
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Models ที่ต้องใช้
 from lab_management.models import Computer, Software, SiteConfig, Booking, UsageLog
@@ -15,11 +17,12 @@ from lab_management.models import Computer, Software, SiteConfig, Booking, Usage
 
 class IndexView(View):
     def get(self, request):
-        # ดึง Config ของระบบ (ถ้ายังไม่มีในฐานข้อมูลให้คืนค่า None ไปก่อน)
         config = SiteConfig.objects.first()
         
-        # รับค่า pc_id จาก URL Parameter (เช่น /kiosk/?pc=PC-01) 
-        pc_name = request.GET.get('pc', 'Unknown')
+        # บังคับใช้ PC-01 เป็นค่าเริ่มต้นหากไม่ได้ระบุใน URL
+        pc_name = request.GET.get('pc')
+        if not pc_name:
+            pc_name = 'PC-01'
         
         context = {
             'config': config,
@@ -33,11 +36,14 @@ class IndexView(View):
 
 class StatusView(View):
     def get(self, request, pc_id):
-        # API สำหรับคืนค่าสถานะเครื่อง ให้ JS (timer.js, auth.js) เช็คแบบ Real-time
-        computer = get_object_or_404(Computer, name=pc_id)
+        # API สำหรับคืนค่าสถานะเครื่องให้ Frontend เช็คแบบ Real-time
+        computer = Computer.objects.filter(name=pc_id).first()
+        if not computer:
+            return JsonResponse({'status': 'NOT_FOUND', 'is_open': False})
+
         config = SiteConfig.objects.first()
         
-        # ค้นหาการจองคิวถัดไปของเครื่องนี้
+        # ค้นหาการจองคิวถัดไป
         next_booking = Booking.objects.filter(
             computer=computer,
             status='APPROVED',
@@ -55,7 +61,6 @@ class StatusView(View):
 
 class VerifyUserAPIView(View):
     def post(self, request):
-        # API สำหรับตรวจสอบรหัสนักศึกษา (เชื่อมกับ UBU API)
         try:
             body = json.loads(request.body)
             student_id = body.get('student_id', '').strip()
@@ -63,45 +68,36 @@ class VerifyUserAPIView(View):
             if not student_id:
                 return JsonResponse({'status': 'error', 'message': 'กรุณาระบุรหัสนักศึกษา'}, status=400)
 
-            # 1. ขอ Token 
-            login_url = "https://esapi.ubu.ac.th/api/v1/auth/login"
-            login_payload = {
-                "username": "dssiapi",
-                "password": "it[vk0kipN;kFp-v,k"
-            }
-            token_response = requests.post(login_url, json=login_payload, timeout=10)
-            token_data = token_response.json()
-
-            if token_response.status_code != 200 or 'access_token' not in token_data:
-                return JsonResponse({'status': 'error', 'message': 'ไม่สามารถเชื่อมต่อระบบของมหาวิทยาลัยได้'}, status=500)
-
-            access_token = token_data['access_token']
-
-            # 2. เข้ารหัสรหัสนักศึกษาเป็น Base64
+            # 1. เข้ารหัสรหัสนักศึกษาเป็น Base64
             encoded_id = base64.b64encode(student_id.encode('utf-8')).decode('utf-8')
 
-            # 3. ดึงข้อมูลนักศึกษา
+            # 2. ยิงตรงไปดึงข้อมูลนักศึกษา (ไม่ใช้ Token)
             data_url = "https://esapi.ubu.ac.th/api/v1/student/reg-data"
             headers = {
-                "Authorization": f"Bearer {access_token}",
                 "Content-Type": "application/json"
             }
             data_payload = {"loginName": encoded_id}
-            data_response = requests.post(data_url, headers=headers, json=data_payload, timeout=10)
+            
+            # ใช้ verify=False เพื่อข้ามปัญหา SSL
+            data_response = requests.post(data_url, headers=headers, json=data_payload, timeout=10, verify=False)
+            
+            # ✅ ยอมรับทั้ง 200 (OK) และ 201 (Created) ว่าทำงานสำเร็จ
+            if data_response.status_code not in [200, 201]:
+                error_msg = data_response.text
+                return JsonResponse({'status': 'error', 'message': f'UBU API Connection Error ({data_response.status_code})'}, status=500)
+
             result = data_response.json()
 
-            if result.get('statusCode') == 200 and result.get('data'):
-                user_data = result['data'][0]
+            # ✅ เช็ค statusCode ข้างใน JSON เผื่อมหาลัยส่ง 201 มา
+            if result.get('statusCode') in [200, 201] and result.get('data'):
+                # ดึงข้อมูลตรงๆ เพราะ API ส่งมาเป็น Object 
+                user_data = result['data'] 
+                
+                # ประกอบชื่อไทย
                 full_name = f"{user_data.get('USERPREFIXNAME', '')}{user_data.get('USERNAME', '')} {user_data.get('USERSURNAME', '')}"
                 
-                # คำนวณชั้นปี
-                entry_year_str = student_id[:2]
-                try:
-                    current_thai_year = timezone.now().year + 543
-                    current_year_short = current_thai_year % 100
-                    student_year = max(1, (current_year_short - int(entry_year_str)) + 1)
-                except:
-                    student_year = "-"
+                # ดึงชั้นปีจาก API (STUDENTYEAR)
+                student_year = str(user_data.get('STUDENTYEAR', '-'))
 
                 return JsonResponse({
                     'status': 'success',
@@ -111,55 +107,44 @@ class VerifyUserAPIView(View):
                         'faculty': user_data.get('FACULTYNAME', 'มหาวิทยาลัยอุบลราชธานี'),
                         'role': 'student',
                         'level': user_data.get('LEVELNAME', 'ปริญญาตรี'),
-                        'year': str(student_year)
+                        'year': student_year
                     }
                 })
             else:
                 return JsonResponse({'status': 'error', 'message': 'ไม่พบข้อมูลในระบบ (รหัสผิด หรือไม่ได้ลงทะเบียน)'}, status=404)
 
-        except requests.exceptions.RequestException:
-            return JsonResponse({'status': 'error', 'message': 'ต้องเชื่อมต่ออินเทอร์เน็ตของมหาวิทยาลัย'}, status=503)
+        except requests.exceptions.RequestException as e:
+            return JsonResponse({'status': 'error', 'message': f'Network Error: ตรวจสอบการเชื่อมต่อ VPN มหาวิทยาลัย'}, status=503)
         except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+            return JsonResponse({'status': 'error', 'message': f'System Error: {str(e)}'}, status=500)
 
 
 class CheckinView(View):
     def get(self, request, pc_id):
-        # หากเข้าด้วย GET ให้พากลับไปหน้า Index
         return redirect(f"{reverse('kiosk_index')}?pc={pc_id}")
 
     def post(self, request, pc_id):
         computer = get_object_or_404(Computer, name=pc_id)
         config = SiteConfig.objects.first()
         
-        # ตรวจสอบว่าแล็บเปิดอยู่และเครื่องว่างหรือไม่
         if (config and not config.is_open) or computer.status not in ['AVAILABLE', 'RESERVED']:
             return redirect(f"{reverse('kiosk_index')}?pc={pc_id}&error=unavailable")
 
-        # รับข้อมูลจาก Form (auth.js ส่งมา)
-        user_id = request.POST.get('user_id')
-        user_name = request.POST.get('user_name')
-        user_type = request.POST.get('user_type', 'student')
-        department = request.POST.get('department', '')
-        user_year = request.POST.get('user_year', '') 
-        
-        # บันทึกข้อมูลการเข้าใช้งานลง UsageLog
-        software_name = computer.Software.name if computer.Software else None
+        # สร้างประวัติการใช้งาน
         usage_log = UsageLog.objects.create(
-            user_id=user_id,
-            user_name=user_name,
-            user_type=user_type,
-            department=department,
-            user_year=user_year,  
+            user_id=request.POST.get('user_id'),
+            user_name=request.POST.get('user_name'),
+            user_type=request.POST.get('user_type', 'student'),
+            department=request.POST.get('department', ''),
+            user_year=request.POST.get('user_year', ''),  
             computer=computer.name,
-            Software=software_name
+            Software=computer.Software.name if computer.Software else None
         )
 
-        # เปลี่ยนสถานะเครื่องเป็น IN_USE
+        # อัปเดตสถานะเครื่อง
         computer.status = 'IN_USE'
         computer.save()
 
-        # นำทางไปหน้าจับเวลา
         return render(request, 'cklab/kiosk/timer.html', {'computer': computer, 'log_id': usage_log.id})
 
 
@@ -169,20 +154,15 @@ class CheckoutView(View):
 
     def post(self, request, pc_id):
         computer = get_object_or_404(Computer, name=pc_id)
-        
-        # หาการใช้งานปัจจุบันของเครื่องนี้ที่ยังไม่ได้ Checkout
         usage_log = UsageLog.objects.filter(computer=computer.name, end_time__isnull=True).last()
         
         if usage_log:
-            # ลงเวลาสิ้นสุด
             usage_log.end_time = timezone.now()
             usage_log.save()
 
-        # คืนสถานะเครื่องให้กลับมาว่าง
         computer.status = 'AVAILABLE'
         computer.save()
 
-        # ส่งต่อไปหน้าประเมินความพึงพอใจ
         log_id = usage_log.id if usage_log else 0
         return redirect('kiosk_feedback', pc_id=computer.name, software_id=log_id)
 
@@ -196,11 +176,9 @@ class FeedbackView(View):
         return render(request, 'cklab/kiosk/feedback.html', context)
 
     def post(self, request, pc_id, software_id):
-        # รับค่าคะแนนและคอมเมนต์
         score = request.POST.get('satisfaction_score')
         comment = request.POST.get('comment', '')
 
-        # อัปเดตข้อมูล UsageLog
         try:
             usage_log = UsageLog.objects.get(id=software_id)
             if score:
@@ -211,5 +189,4 @@ class FeedbackView(View):
         except UsageLog.DoesNotExist:
             pass
 
-        # กลับหน้าแรกเมื่อประเมินเสร็จ
         return redirect(f"{reverse('kiosk_index')}?pc={pc_id}")

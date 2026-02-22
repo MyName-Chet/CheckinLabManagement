@@ -1,7 +1,7 @@
 /* main.css - Final Consolidated Stylesheet */
 
 @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap');
 
 :root {
     --primary: #2c3e50;    /* กรมท่าเข้ม */
@@ -210,9 +210,9 @@ hr {
 /* =========================================
    FEEDBACK PAGE STYLES
    ========================================= */
-.success-animation { margin: 0 auto 20px; }
+.success-animation { margin: 0 auto 18px; } 
 .checkmark {
-    width: 80px; height: 80px;
+    width: 75px; height: 75px; 
     border-radius: 50%;
     display: block;
     stroke-width: 2;
@@ -243,11 +243,11 @@ hr {
 
 .star-rating {
     display: inline-flex;
-    gap: 10px;
+    gap: 10px; 
     direction: row;
 }
 .star-rating span {
-    font-size: 3.5rem;
+    font-size: 3.2rem; 
     color: #e9ecef;
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -266,27 +266,12 @@ hr {
 .feedback-box {
     background: #f8f9fa;
     border-radius: 12px;
-    padding: 20px;
-    margin-top: 20px;
+    padding: 18px; 
+    margin-top: 18px;
 }
 .feedback-box textarea {
     resize: none;
     background-color: #fff;
-}
-
-.drop-shadow-sm {
-    filter: drop-shadow(0px 1px 1px rgba(0,0,0,0.1));
-    margin-right: 2px;
-    font-size: 1.2rem;
-}
-
-#satisfactionAvgScore {
-    line-height: 1;
-    letter-spacing: -2px;
-}
-
-.progress-bar {
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 
@@ -298,7 +283,7 @@ hr {
     border-radius: 24px;
     background: rgba(255, 255, 255, 0.98);
     backdrop-filter: blur(10px);
-    box-shadow: 0 25px 50px -12px rgba(0, 51, 102, 0.15); /* เงาสีน้ำเงินจาง */
+    box-shadow: 0 25px 50px -12px rgba(0, 51, 102, 0.15); 
     overflow: hidden;
 }
 
@@ -312,7 +297,7 @@ hr {
 .icon-container-lg {
     width: 100px;
     height: 100px;
-    background-color: #f0f4f8; /* พื้นหลังไอคอนเทาอมฟ้า */
+    background-color: #f0f4f8; 
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -324,31 +309,84 @@ hr {
 
 .icon-container-lg i {
     font-size: 3.5rem;
-    color: #003366; /* สีไอคอนน้ำเงินเข้ม */
+    color: #003366; 
     filter: drop-shadow(0 4px 6px rgba(0, 51, 102, 0.2));
 }
 
-/* Animation Pulse: สีน้ำเงิน */
-.animate-pulse-blue {
-    animation: pulseBlue 2s infinite;
-}
-
-@keyframes pulseBlue {
-    0% { box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.2); }
-    70% { box-shadow: 0 0 0 20px rgba(13, 110, 253, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(13, 110, 253, 0); }
-}
-
-/* ✅✅✅ กล่องข้อความ Admin Message (แก้ไขให้เด่นชัดขึ้น) ✅✅✅ */
 .message-box {
-    background-color: #f0f7ff; /* พื้นหลังฟ้าอ่อน */
-    border: 1px solid #cce5ff; /* เส้นขอบบางๆ รอบกล่อง */
-    border-left: 6px solid #003366; /* เส้นด้านซ้ายหนาสีน้ำเงินเข้ม */
+    background-color: #f0f7ff; 
+    border: 1px solid #cce5ff; 
+    border-left: 6px solid #003366; 
     border-radius: 10px;
     padding: 20px;
     text-align: left;
     margin-top: 20px;
-    box-shadow: 0 4px 12px rgba(0, 51, 102, 0.08); /* เพิ่มเงา */
+    box-shadow: 0 4px 12px rgba(0, 51, 102, 0.08); 
+}
+
+
+/* =========================================
+   TIMER PAGE (Simple & Minimal Light Theme)
+   ========================================= */
+
+/* พื้นหลังไล่ระดับสีขาวไปฟ้าอ่อน */
+.timer-page-bg {
+    background: radial-gradient(circle at center, #ffffff 0%, #f0f4f8 100%) !important;
+}
+
+/* ชื่อผู้ใช้: บังคับสีน้ำเงินเข้มและเพิ่มเงาให้ลอยเด่น */
+#userNameDisplay {
+    color: var(--accent) !important;
+    font-weight: 700 !important;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.06) !important; 
+}
+
+/* คำว่าผู้ใช้งานปัจจุบัน */
+.user-label-text {
+    color: #6c757d !important; /* สีเทาเข้ม */
+    font-weight: 500 !important;
+    font-size: 1.1rem;
+}
+
+/* กล่องจับเวลา: สีขาว ขอบมน มีเส้นด้านบน */
+.timer-simple-card {
+    background-color: #ffffff !important;
+    border: none !important;
+    border-top: 8px solid var(--accent) !important;
+    border-radius: 28px !important;
+    box-shadow: 0 15px 40px rgba(0, 51, 102, 0.08) !important;
+    padding: 50px 30px !important;
+}
+
+/* ตัวเลขเวลา: ใหญ่ หนา สีน้ำเงินเข้ม มีเงาดันไม่ให้จมสีขาว */
+#timerDisplay {
+    font-family: 'Prompt', sans-serif !important;
+    font-size: 6rem !important; /* ขยายใหญ่สะใจ */
+    font-weight: 700 !important;
+    color: var(--accent) !important;
+    letter-spacing: -2px !important;
+    line-height: 1 !important;
+    text-shadow: 0 4px 10px rgba(0, 51, 102, 0.15) !important; /* เงาเด้ง */
+    margin-bottom: 10px !important;
+}
+
+/* คำอธิบายใต้เวลา */
+#timerLabel {
+    color: #495057 !important; /* สีเทาเข้มชัดๆ */
+    font-weight: 500 !important;
+    font-size: 1.2rem !important;
+}
+
+/* ป้ายชื่อเครื่อง Station */
+#pcNameDisplay {
+    background-color: var(--primary) !important; /* พื้นสีกรมท่า */
+    color: #ffffff !important; /* ตัวอักษรขาวชัดเจน */
+    font-size: 1.2rem !important;
+    padding: 12px 30px !important;
+    border-radius: 50px !important;
+    box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2) !important;
+    display: inline-flex !important;
+    align-items: center !important;
 }
 
 

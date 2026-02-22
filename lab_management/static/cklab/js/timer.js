@@ -1,4 +1,4 @@
-/* timer.js - Django Integrated Version (Force Bright Text) */
+// timer.js - Django Integrated Version (Light & Clean Theme)
 
 let timerInterval; 
 let startTime; // เก็บเวลาเริ่มใช้งานที่ได้มาจาก Backend หรือตอนโหลดหน้า
@@ -6,46 +6,52 @@ let forceEndTime = null; // สำหรับกรณีจองเวลา 
 
 document.addEventListener('DOMContentLoaded', () => {
     // 1. กำหนดเวลาเริ่มต้นจากการโหลดหน้า
-    // (หากต้องการให้ตรงเป๊ะ 100% ควรรับค่า startTime จาก Django Context มาใส่ตัวแปร)
     startTime = Date.now(); 
 
-    // หากมีการดึงข้อมูลผู้ใช้จาก Session Storage (ที่เซฟไว้ตอน Check-in) ก็ยังคงทำได้เพื่อแสดงชื่อ
+    // 2. ดึงชื่อผู้ใช้จาก Session Storage (ที่เซฟไว้ตอน Check-in) มาแสดง
     const savedUser = sessionStorage.getItem('cklab_user_name');
-    const userName = savedUser ? savedUser : 'กำลังใช้งาน...';
     const userNameDisplay = document.getElementById('userNameDisplay');
-    if(userNameDisplay) userNameDisplay.innerText = userName;
     
-    // -------------------------------------------------------------
-    // ✅ อัปเดตการแสดงผลชื่อเครื่องและ Software (ถ้ามี API ดึงมาได้)
-    // -------------------------------------------------------------
-    // ในที่นี้สมมติให้ใช้ค่า PC_ID ที่ได้มาจาก Django Context (ที่อยู่ใน tag <script> ของ timer.html)
+    if (userNameDisplay) {
+        if (savedUser && userNameDisplay.innerText.includes('กำลังโหลด')) {
+            userNameDisplay.innerText = savedUser;
+        } else if (!savedUser && userNameDisplay.innerText.includes('กำลังโหลด')) {
+            userNameDisplay.innerText = 'ผู้ใช้งานระบบ Kiosk';
+        }
+    }
+    
+    // 3. อัปเดตการแสดงผลชื่อเครื่องและ Software 
+    // ใช้ค่า PC_ID ที่ได้มาจาก Django Context 
     const pcIdDisplay = typeof PC_ID !== 'undefined' ? PC_ID : '??';
     
-    // ค่าเริ่มต้น: General Use (สีขาวปกติ text-white)
+    // ค่าเริ่มต้น: General Use 
     let labelText = "General Use";
-    let labelClass = "text-white fw-normal"; 
 
-    // อัปเดต HTML: ตัวคั่นใช้สีจางได้ แต่ตัวหนังสือต้องชัด
+    // อัปเดต HTML: นำจุดสีเขียวกลับมา และเอา text-white ออกเพื่อไม่ให้ตัวหนังสือล่องหน
     const pcNameEl = document.getElementById('pcNameDisplay');
     if (pcNameEl) {
-        pcNameEl.innerHTML = `Station: ${pcIdDisplay} <span class="text-white-50 fw-normal mx-1">|</span> <span class="${labelClass}" style="letter-spacing: 0.5px;">${labelText}</span>`;
+        pcNameEl.innerHTML = `
+            <span class="status-indicator bg-success" style="width: 12px; height: 12px; margin-right: 8px;"></span>
+            Station: ${pcIdDisplay} 
+            <span class="text-muted fw-normal mx-2">|</span> 
+            <span class="fw-normal" style="letter-spacing: 0.5px;">${labelText}</span>
+        `;
     }
-    // -------------------------------------------------------------
     
-    // เริ่มจับเวลา
+    // 4. เริ่มจับเวลา
     setupUnlimitedMode();
 });
 
 function setupUnlimitedMode() {
     console.log("Mode: Normal Timer (Elapsed)");
     const label = document.getElementById('timerLabel');
-    if(label) label.innerText = "เวลาที่ใช้งานไปแล้ว (Elapsed Time)";
+    if(label) label.innerText = "ระยะเวลาที่ใช้งาน (Usage Time)";
     
     updateTimer(); 
     if(timerInterval) clearInterval(timerInterval);
     timerInterval = setInterval(updateTimer, 1000); 
     
-    // เช็คสถานะกับ Backend เผื่อ Admin สั่งเตะออก (Checkout จากระยะไกล)
+    // เช็คสถานะกับ Backend ทุก 5 วินาที เผื่อ Admin สั่งเตะออก
     setInterval(syncWithAdminUpdates, 5000);
 }
 
@@ -57,8 +63,8 @@ function updateTimer() {
     const timerDisplay = document.getElementById('timerDisplay');
     if(timerDisplay) {
         timerDisplay.innerText = formatTime(diff);
+        // เอาการเติม text-white ออกไป เพราะ CSS ธีมใหม่เราบังคับให้เป็นสีน้ำเงินเข้มแล้ว
         timerDisplay.classList.remove('text-danger', 'fw-bold'); 
-        timerDisplay.classList.add('text-white'); 
     }
 }
 
@@ -66,7 +72,6 @@ async function syncWithAdminUpdates() {
     if (typeof PC_ID === 'undefined' || !PC_ID) return;
 
     try {
-        // ใช้ API ที่เราเขียนไว้ใน views.py
         const response = await fetch(`/kiosk/api/status/${PC_ID}/`);
         if (!response.ok) return;
 
@@ -109,12 +114,11 @@ function doCheckout(isAuto = false) {
     if (!isAuto && !confirm('คุณต้องการเลิกใช้งานและออกจากระบบใช่หรือไม่?')) return;
     if (timerInterval) clearInterval(timerInterval);
 
-    // ป้องกันการกดปุ่มซ้ำ
+    // ป้องกันการกดปุ่มซ้ำรัวๆ
     const btn = document.querySelector('.btn-danger');
     if(btn) btn.disabled = true;
 
-    // แทนที่จะใช้ DB.updatePCStatus() และ window.location.href
-    // เราจะสั่งให้ Form ที่ครอบปุ่ม Checkout ไว้ ทำการ Submit ตัวเองไปยัง Django Backend (CheckoutView)
+    // สั่งให้ Form ที่ครอบปุ่ม Checkout ไว้ ทำการ Submit ตัวเองไปยัง Django Backend (CheckoutView)
     const form = document.getElementById('checkoutForm');
     if (form) {
         form.submit();
@@ -122,7 +126,3 @@ function doCheckout(isAuto = false) {
         alert("ไม่พบฟอร์มสำหรับ Checkout กรุณาติดต่อผู้ดูแลระบบ");
     }
 }
-
-// แนะนำเพิ่มเติม: ตอน Check-in ที่ไฟล์ auth.js ก่อนที่จะ submit form 
-// ให้เพิ่ม sessionStorage.setItem('cklab_user_name', verifiedUserData.name); 
-// เพื่อให้หน้า Timer ดึงชื่อมาโชว์ได้ครับ

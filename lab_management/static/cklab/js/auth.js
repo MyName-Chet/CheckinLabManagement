@@ -1,9 +1,9 @@
 /* auth.js - Kiosk Logic (Django Integrated Version with UBU API) */
 
 function getSystemPCId() {
+    // ดึงค่า pc จาก Hash (เช่น #PC-01) หรือ Query Parameter (เช่น ?pc=PC-01)
     if (window.location.hash) {
-        let id = window.location.hash.replace('#', '').replace(/pc-/i, '');
-        return parseInt(id).toString();
+        return window.location.hash.replace('#', '').trim();
     }
     const params = new URLSearchParams(window.location.search);
     return params.get('pc');
@@ -37,8 +37,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalEl = document.getElementById('labClosedModal');
     if (modalEl) labClosedModal = new bootstrap.Modal(modalEl);
 
-    // Validate PC ID
-    if (!FIXED_PC_ID || isNaN(parseInt(FIXED_PC_ID))) {
+    // Validate PC ID (แก้ไข: เช็คแค่ว่ามีค่าส่งมาหรือไม่ ไม่ต้องเช็คว่าเป็นตัวเลข)
+    if (!FIXED_PC_ID) {
         renderNoPcIdError();
         return;
     }
@@ -69,7 +69,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // ✅ ดึงสถานะเครื่องและสถานะแล็บจาก Backend
 async function fetchMachineAndLabStatus() {
     try {
-        const response = await fetch(`/kiosk/api/status/${FIXED_PC_ID}/`);
+        // ใช้ relative path เพื่อให้รองรับทั้ง / และ /kiosk/
+        const response = await fetch(`/api/status/${FIXED_PC_ID}/`);
         if (!response.ok) return;
 
         const data = await response.json();
@@ -120,7 +121,7 @@ function renderNoPcIdError() {
         <div class="d-flex justify-content-center align-items-center vh-100 flex-column text-center bg-light">
             <div class="card border-0 shadow p-5 rounded-4">
                 <h2 class="fw-bold text-dark">⚠️ Setup Error</h2>
-                <p class="text-muted mb-4">ไม่พบหมายเลขเครื่องใน URL<br>กรุณาเข้าผ่านลิงก์เช่น: <code>/kiosk/?pc=PC-01</code></p>
+                <p class="text-muted mb-4">ไม่พบหมายเลขเครื่องใน URL<br>กรุณาเข้าผ่านลิงก์เช่น: <code>/?pc=PC-01</code></p>
             </div>
         </div>
     `;
@@ -168,7 +169,7 @@ async function verifyUBUUser() {
     checkBtn.disabled = true;
 
     try {
-        const response = await fetch('/kiosk/api/verify-user/', {
+        const response = await fetch('/api/verify-user/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -269,7 +270,7 @@ function confirmCheckIn() {
     // สร้าง Form แบบไดนามิก เพื่อ POST ข้อมูลไปยัง CheckinView ของ Django
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = `/kiosk/checkin/${FIXED_PC_ID}/`; // URL ตามโครงสร้าง Django
+    form.action = `/checkin/${FIXED_PC_ID}/`; // URL ตามโครงสร้าง Django
 
     // เพิ่ม CSRF Token
     const csrfInput = document.createElement('input');

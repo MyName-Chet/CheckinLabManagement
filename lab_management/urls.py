@@ -1,6 +1,4 @@
 from django.urls import path
-
-# นำเข้า view เฉพาะของไฟล์ kiosk.py
 from .views import kiosk
 
 # (ในอนาคตถ้าเพื่อนทำไฟล์อื่นเสร็จ ให้มาเพิ่มตรงนี้ เช่น from .views import auth, monitor, booking)

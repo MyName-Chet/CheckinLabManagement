@@ -4,41 +4,48 @@
 {% block title %}กำลังใช้งาน - Station {{ computer.name|default:"Unknown" }}{% endblock %}
 
 {% block extra_head %}
-<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="{% static 'cklab/css/main.css' %}?v={% now 'U' %}" rel="stylesheet">
+
 <style>
-    /* บังคับให้หน้านี้มีพื้นหลังสีเข้ม (Dark Mode) เพื่อให้ตรงกับดีไซน์เดิม */
-    body {
-        background-color: #212529 !important; /* เทียบเท่า bg-dark ของ Bootstrap */
-    }
+    /* ซ่อน Navbar / Sidebar เพื่อให้เป็น Kiosk เต็มจอ */
+    header, nav, .sidebar, .navbar { display: none !important; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center justify-content-center min-vh-100 text-white">
-    <div class="text-center w-100" style="max-width: 600px;">
+<div class="d-flex align-items-center justify-content-center min-vh-100 text-dark timer-page-bg">
+    
+    <div class="text-center w-100 animate-fade" style="max-width: 600px;">
         
-        <h5 class="text-white-50 mb-3">ผู้ใช้งานปัจจุบัน</h5>
-        <h2 id="userNameDisplay" class="text-warning mb-4 fw-bold">-</h2>
+        <img src="{% static 'cklab/img/ubu_logo.png' %}" alt="UBU Logo" height="50" class="mb-4 opacity-75" onerror="this.style.display='none';">
+
+        <h5 class="text-muted mb-2">ผู้ใช้งานปัจจุบัน</h5>
+        <h2 id="userNameDisplay" class="mb-4 fw-bold" style="color: var(--accent);">กำลังโหลดชื่อ...</h2>
         
-        <div class="card bg-secondary bg-opacity-25 border-secondary p-5 mb-4 rounded-4 shadow-lg position-relative overflow-hidden">
-            <h1 class="display-1 fw-bold mb-0 text-white" id="timerDisplay">00:00:00</h1>
-            <small class="text-white-50 mt-2 d-block" id="timerLabel">ระยะเวลาที่ใช้งาน (Usage Time)</small>
+        <div class="card timer-simple-card position-relative overflow-hidden mx-auto mb-4">
             
-            <div id="alertBox" class="alert alert-warning mt-3 mb-0 d-none text-start animate-fade">
-                <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                <span id="alertMsg">แจ้งเตือน...</span>
+            <h1 class="display-1 fw-bold mb-0" id="timerDisplay" style="color: var(--accent); letter-spacing: -2px;">00:00:00</h1>
+            <small class="text-muted mt-2 d-block fs-6" id="timerLabel">ระยะเวลาที่ใช้งาน (Usage Time)</small>
+            
+            <div id="alertBox" class="alert alert-warning mt-4 mb-0 d-none text-start animate-fade rounded-3 border-0 shadow-sm">
+                <i class="bi bi-exclamation-triangle-fill me-2 text-warning"></i>
+                <span id="alertMsg" class="text-dark">แจ้งเตือน...</span>
             </div>
         </div>
 
         <h4 class="mb-4">
-            <span class="badge bg-primary px-4 py-2" id="pcNameDisplay">Station: {{ computer.name|default:"-" }}</span>
+            <span class="badge px-4 py-2 shadow-sm rounded-pill" id="pcNameDisplay" style="background-color: var(--primary); font-size: 1rem; font-weight: 500;">
+                <span class="status-indicator bg-success" style="width: 8px; height: 8px; margin-right: 6px;"></span>
+                Station: {{ computer.name|default:"-" }}
+            </span>
         </h4>
 
-        <div class="d-grid gap-3 d-sm-flex justify-content-center">
-            <form id="checkoutForm" method="POST" action="/kiosk/checkout/{{ computer.name }}/">
+        <div class="d-grid gap-3 d-sm-flex justify-content-center mt-2">
+            <form id="checkoutForm" method="POST" action="{% url 'kiosk_checkout' computer.name %}">
                 {% csrf_token %}
-                <button type="button" onclick="doCheckout()" class="btn btn-danger btn-lg px-4 rounded-pill fw-bold shadow">
-                    <i class="bi bi-box-arrow-right me-2"></i>เลิกใช้งาน (Check-out)
+                <button type="button" onclick="doCheckout()" class="btn btn-danger btn-lg px-5 py-3 rounded-pill fw-bold shadow transition-all">
+                    <i class="bi bi-power me-2"></i> เลิกใช้งาน (Check-out)
                 </button>
             </form>
         </div>
@@ -49,8 +56,9 @@
 
 {% block extra_scripts %}
 <script>
+    // ประกาศตัวแปรรับค่าจาก Django เพื่อให้ timer.js นำไปใช้งานต่อ
     const PC_ID = "{{ computer.name|default:'' }}";
 </script>
 
-<script src="{% static 'cklab/js/timer.js' %}"></script>
+<script src="{% static 'cklab/js/timer.js' %}?v={% now 'U' %}"></script>
 {% endblock %}
