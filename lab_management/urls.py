@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import kiosk, auth, monitor, manage_pc, software , report
+from .views import kiosk, auth, monitor, manage_pc, software , report , config
 
 # (ในอนาคตถ้าเพื่อนทำไฟล์อื่นเสร็จ ให้มาเพิ่มตรงนี้ เช่น from .views import auth, monitor, booking)
 
@@ -46,5 +46,5 @@ urlpatterns = [
     path('admin-portal/report/export/', report.AdminReportExportView.as_view(), name='admin_report_export'), # เขมมิกา
     path('admin-portal/report/api/logs/', report.AdminReportAPIView.as_view(), name='admin_report_api'),
     path('admin-portal/report/import/', report.AdminReportView.as_view(), name='admin_report_import'),
-    # path('admin-portal/config/', config.AdminConfigView.as_view(), name='admin_config'), # ภานุวัฒน์
+    path('admin-portal/config/', config.AdminConfigView.as_view(), name='admin_config'), # ภานุวัฒน์
 ]
