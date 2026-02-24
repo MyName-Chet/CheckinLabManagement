@@ -1,4 +1,197 @@
 {% extends "cklab/base.html" %}
-{% block title %}จัดการการจอง{% endblock %}
+{% load static %}
+
+{% block title %}Booking Management - Admin Panel{% endblock %}
+
+{% block extra_head %}
+<link href="{% static 'cklab/css/admin.css' %}?v={% now 'U' %}" rel="stylesheet">
+<style>
+    /* บังคับไม่ให้เกิด Scroll ซ้อน และจัดการพื้นหลัง */
+    body { 
+        overflow: hidden; 
+        background-color: var(--gray-light);
+        font-family: 'Prompt', sans-serif;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
+<div class="d-flex" style="height: 100vh; width: 100vw; position: absolute; top:0; left:0;">
+    
+    <div id="sidebar-container" class="shadow-sm">
+        <a href="{% url 'admin_monitor' %}" class="sidebar-brand">
+            <i class="bi bi-shield-lock me-2"></i>Admin Panel
+        </a>
+        <nav class="mt-3">
+            <a href="{% url 'admin_monitor' %}" class="sidebar-link"><i class="bi bi-grid-fill me-2"></i> Monitor</a>
+            <a href="{% url 'admin_manage_pc'|default:'#' %}" class="sidebar-link"><i class="bi bi-pc-display me-2"></i> Manage PC</a>
+            
+            <a href="{% url 'admin_booking' %}" class="sidebar-link active"><i class="bi bi-calendar-check-fill me-2"></i> Booking</a>
+            
+            <a href="{% url 'admin_software' %}" class="sidebar-link"><i class="bi bi-robot me-2"></i> Manage AI</a>
+            <a href="{% url 'admin_user' %}" class="sidebar-link"><i class="bi bi-people-fill me-2"></i> Manage Users</a>
+            <a href="#" class="sidebar-link"><i class="bi bi-sliders me-2"></i> System Config</a>
+            <a href="{% url 'admin_report' %}" class="sidebar-link"><i class="bi bi-file-earmark-bar-graph-fill me-2"></i> Reports</a>
+            
+            <div class="border-top my-3 mx-2"></div>
+            
+            <form method="POST" action="{% url 'logout' %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-link sidebar-link text-danger w-100 text-start text-decoration-none">
+                    <i class="bi bi-box-arrow-right me-2"></i> Logout
+                </button>
+            </form>
+        </nav>
+    </div>
+
+    <div class="flex-grow-1 p-4 bg-light" style="overflow-y: auto;">
+        
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h3 class="fw-bold text-primary mb-1">📅 Booking Management</h3>
+                <p class="text-muted small mb-0">ตารางการจองและตรวจสอบรอบว่าง</p>
+            </div>
+            
+            <div class="d-flex gap-2">
+                <button onclick="downloadCSVTemplate()" class="btn btn-outline-secondary shadow-sm" title="ดาวน์โหลดไฟล์ตัวอย่าง">
+                    <i class="bi bi-download me-1"></i> โหลดแบบฟอร์ม
+                </button>
+
+                <input type="file" id="importFile" accept=".csv" style="display: none;" onchange="handleImport(this)">
+                <button onclick="document.getElementById('importFile').click()" class="btn btn-success shadow-sm">
+                    <i class="bi bi-file-earmark-spreadsheet-fill me-1"></i> Import CSV
+                </button>
+                <button onclick="openBookingModal()" class="btn btn-primary shadow-sm">
+                    <i class="bi bi-plus-lg me-1"></i> เพิ่มการจองใหม่
+                </button>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4 rounded-4">
+            <div class="card-body py-3 px-4">
+                <div class="row g-3 align-items-center">
+                    <div class="col-auto">
+                        <label class="fw-bold small text-muted"><i class="bi bi-funnel-fill me-1"></i>ค้นหา/กรอง:</label>
+                    </div>
+                    <div class="col-auto">
+                        <input type="date" id="bookingDateFilter" class="form-control form-control-sm" onchange="renderBookings()">
+                    </div>
+                    <div class="col-auto">
+                        <select id="bookingStatusFilter" class="form-select form-select-sm" onchange="renderBookings()">
+                            <option value="all">-- ทุกสถานะ --</option>
+                            <option value="pending">⏳ รออนุมัติ (Pending)</option>
+                            <option value="approved">🟡 อนุมัติแล้ว (Approved)</option>
+                            <option value="rejected">❌ ปฏิเสธ/ยกเลิก (Rejected)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="ps-4">วันที่ (Date)</th>
+                                <th>เวลา (Time)</th>
+                                <th>ผู้จอง (User)</th>
+                                <th>เครื่อง (PC)</th>
+                                <th width="25%">Software / AI ที่จอง</th> 
+                                <th>สถานะ (Status)</th>
+                                <th class="text-end pe-4">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bookingTableBody">
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-5">กำลังโหลดข้อมูล...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="modal fade" id="bookingModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header bg-primary text-white px-4 py-3 rounded-top-4">
+                <h6 class="modal-title fw-bold"><i class="bi bi-calendar-plus me-2"></i>เพิ่มการจองใหม่</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form onsubmit="event.preventDefault(); saveBooking();">
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-bold">ผู้จอง (UBU WIFI+ หรือ รหัสนักศึกษา)</label>
+                        <input type="text" id="bkUser" class="form-control" required placeholder="เช่น scwayopu หรือ 66123456">
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label text-muted small fw-bold">วันที่</label>
+                            <input type="date" id="bkDate" class="form-control" required>
+                        </div>
+                        
+                        <div class="col-6">
+                            <label class="form-label text-muted small fw-bold">ช่วงเวลา</label>
+                            <select id="bkTimeSlot" class="form-select" required>
+                                <option value="09:00-10:30">09:00 - 10:30</option>
+                                <option value="10:30-12:00">10:30 - 12:00</option>
+                                <option value="13:30-15:00">13:30 - 15:00</option>
+                                <option value="15:00-16:30">15:00 - 16:30</option>
+                                <option value="08:00-17:00">ทั้งวัน (08:00 - 17:00)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label text-muted small fw-bold">ประเภทการใช้งาน</label>
+                            <select id="bkTypeSelect" class="form-select" onchange="toggleSoftwareList()">
+                                <option value="General">ทั่วไป (General)</option>
+                                <option value="AI">AI Workstation</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label text-muted small fw-bold">ค้นหาเครื่องจาก Software</label>
+                            <select id="bkSoftwareFilter" class="form-select form-select-sm text-primary border-primary bg-light" onchange="filterPCList()">
+                                <option value="">-- ไม่ระบุ (แสดงทั้งหมด) --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-bold">เลือกเครื่อง (PC)</label>
+                        <select id="bkPcSelect" class="form-select" required onchange="updateSoftwareList()">
+                            <option value="">-- กรุณาเลือกเครื่อง --</option>
+                        </select>
+                        <div class="form-text small" id="pcSoftwareHint">-</div>
+                    </div>
+
+                    <div id="aiSelectionBox" class="card bg-light border-0 p-3 d-none mb-3 rounded-3">
+                        <label class="form-label small fw-bold mb-2">เลือก Software/AI ที่จะใช้:</label>
+                        <div id="aiCheckboxList" class="d-flex flex-wrap gap-2" style="max-height: 100px; overflow-y: auto;">
+                            <span class="text-muted small fst-italic">กรุณาเลือกเครื่องก่อน...</span>
+                        </div>
+                    </div>
+
+                    <div class="d-grid mt-4">
+                        <button type="submit" class="btn btn-primary py-2 fw-bold shadow-sm rounded-pill">
+                            <i class="bi bi-save me-2"></i>ยืนยันการจองทันที
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'cklab/js/admin-booking.js' %}?v={% now 'U' %}"></script>
 {% endblock %}
