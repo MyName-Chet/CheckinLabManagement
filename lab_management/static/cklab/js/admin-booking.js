@@ -1,13 +1,9 @@
-// --- admin-booking.js (Django API Version - Real Database) ---
+// --- admin-booking.js (Dynamic URL Version) ---
 
 let bookingModal;
 let allPCs = [];
 let allBookings = [];
 let allSoftware = [];
-
-// ==========================================
-// 0. INIT & HELPERS
-// ==========================================
 
 function getCsrfToken() {
     let cookieValue = null;
@@ -21,10 +17,13 @@ function getCsrfToken() {
             }
         }
     }
-    if (!cookieValue) {
-        cookieValue = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
-    }
-    return cookieValue;
+    return cookieValue || document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+}
+
+function getLocalDateString() {
+    const today = new Date();
+    const offset = today.getTimezoneOffset() * 60000;
+    return (new Date(today.getTime() - offset)).toISOString().split('T')[0];
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -32,18 +31,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (modalEl) bookingModal = new bootstrap.Modal(modalEl);
 
     const dateFilter = document.getElementById('bookingDateFilter');
-    if (dateFilter) {
-        const today = new Date();
-        const yyyy = today.getFullYear();
-        const mm = String(today.getMonth() + 1).padStart(2, '0');
-        const dd = String(today.getDate()).padStart(2, '0');
-        dateFilter.value = `${yyyy}-${mm}-${dd}`;
-    }
+    if (dateFilter) dateFilter.value = getLocalDateString();
 
-    // โหลดข้อมูลเริ่มต้นจาก Backend
     await fetchBookingData();
 
-    // Event Listeners สำหรับ Modal
     document.getElementById('bkDate')?.addEventListener('change', filterPCList);
     document.getElementById('bkTimeSlot')?.addEventListener('change', filterPCList);
     document.getElementById('bkTypeSelect')?.addEventListener('change', () => {
@@ -51,7 +42,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         filterPCList();
     });
 
-    // Event Listener: ค้นหาชื่อผู้จองอัตโนมัติ
     const userInput = document.getElementById('bkUser');
     if (userInput) {
         if (!document.getElementById('userLookupHint')) {
@@ -67,15 +57,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ==========================================
 // 1. DATA FETCHING (API)
 // ==========================================
-
 async function fetchBookingData() {
     try {
-        // ยิงไปขอข้อมูลการจอง, เครื่อง PC, และ Software ทั้งหมดจาก Backend
-        const response = await fetch('/kiosk/admin-portal/api/bookings/data/', {
+        // ใช้ URL แบบไดนามิก เพื่อป้องกัน 404 Not Found
+        const dataUrl = window.location.pathname.replace('/booking/', '/api/bookings/data/');
+        const response = await fetch(dataUrl, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         });
         
-        if (!response.ok) throw new Error('Failed to fetch data');
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
         
         const data = await response.json();
         if (data.status === 'success') {
@@ -87,7 +77,7 @@ async function fetchBookingData() {
             renderBookings();
         }
     } catch (error) {
-        console.error("Error fetching booking data:", error);
+        console.error("❌ Error fetching booking data:", error);
     }
 }
 
@@ -110,22 +100,19 @@ function initFormOptions() {
 // ==========================================
 // 2. FEATURE: USER LOOKUP
 // ==========================================
-
 async function checkUserLookup() {
     const input = document.getElementById('bkUser');
     const hint = document.getElementById('userLookupHint');
     const val = input.value.trim();
 
-    if (!val) {
-        hint.innerHTML = '';
-        return;
-    }
+    if (!val) { hint.innerHTML = ''; return; }
 
     hint.innerHTML = '<span class="text-muted"><span class="spinner-border spinner-border-sm"></span> กำลังค้นหา...</span>';
 
     try {
-        // ใช้ API ตรวจสอบนักศึกษาตัวเดียวกับที่ใช้อยู่ในระบบ
-        const response = await fetch('/kiosk/api/verify-user/', {
+        // อ้างอิง URL ตรวจสอบรหัสนศ.
+        const verifyUrl = window.location.pathname.split('/admin-portal/')[0] + '/api/verify-user/';
+        const response = await fetch(verifyUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
             body: JSON.stringify({ student_id: val })
@@ -136,9 +123,9 @@ async function checkUserLookup() {
         if (data.status === 'success') {
             const roleTxt = data.data.role === 'student' ? 'นักศึกษา' : 'บุคลากร';
             hint.innerHTML = `<span class="text-success fw-bold"><i class="bi bi-check-circle-fill"></i> พบข้อมูล: ${data.data.name} (${roleTxt})</span>`;
-            hint.dataset.verifiedName = data.data.name; // เก็บชื่อไว้ใช้ตอนเซฟ
+            hint.dataset.verifiedName = data.data.name; 
         } else {
-            hint.innerHTML = `<span class="text-warning"><i class="bi bi-exclamation-circle"></i> ไม่พบข้อมูลในระบบ (ระบบจะบันทึกเป็นชื่อ Guest แทน)</span>`;
+            hint.innerHTML = `<span class="text-warning"><i class="bi bi-exclamation-circle"></i> ไม่พบข้อมูลในระบบ (จะบันทึกเป็น Guest)</span>`;
             hint.dataset.verifiedName = '';
         }
     } catch (error) {
@@ -147,12 +134,16 @@ async function checkUserLookup() {
 }
 
 // ==========================================
-// 3. FEATURE: FILTER PC & RENDER
+// 3. FILTER & RENDER
 // ==========================================
-
 function filterPCList() {
     const pcSelect = document.getElementById('bkPcSelect');
     if (!pcSelect) return;
+
+    if (allPCs.length === 0) {
+        pcSelect.innerHTML = '<option value="">❌ ไม่มีข้อมูลคอมพิวเตอร์ในระบบ (ไปเพิ่มที่เมนู Manage PC ก่อน)</option>';
+        return;
+    }
 
     const swName = document.getElementById('bkSoftwareFilter').value.toLowerCase();
     const selDate = document.getElementById('bkDate').value;
@@ -170,27 +161,22 @@ function filterPCList() {
     let count = 0;
 
     allPCs.forEach(pc => {
-        // --- A. กรอง Type (General / AI) ---
         const isAI = pc.software_type === 'AI';
         if (selType === 'General' && isAI) return;
         if (selType === 'AI' && !isAI) return;
 
-        // --- B. กรอง Software Filter ---
         if (swName !== "" && pc.software_name.toLowerCase() !== swName) return;
 
-        // --- C. เช็คสถานะซ่อม ---
         if (pc.status === 'MAINTENANCE') {
             pcSelect.innerHTML += `<option value="${pc.id}" disabled style="color: #6c757d;">🔴 ${pc.name} (แจ้งซ่อม)</option>`;
             count++;
             return;
         }
 
-        // --- D. เช็คคิวว่าง (Conflict Check) ---
         const isConflict = allBookings.some(b => {
             if (String(b.pc_name) !== String(pc.name)) return false;
             if (b.date !== selDate) return false;
             if (b.status === 'REJECTED' || b.status === 'COMPLETED') return false;
-            // เช็คเวลาชน
             return (selStart < b.end_time && selEnd > b.start_time);
         });
 
@@ -206,16 +192,13 @@ function filterPCList() {
     if (count === 0) {
         pcSelect.innerHTML = `<option value="" disabled>❌ ไม่พบเครื่องที่ตรงตามเงื่อนไข</option>`;
     }
-
     updateSoftwareList();
 }
 
 function updateSoftwareList() {
     const pcId = document.getElementById('bkPcSelect').value;
     const container = document.getElementById('aiCheckboxList');
-    const hint = document.getElementById('pcSoftwareHint');
-
-    if (hint) hint.innerText = "";
+    
     if (!container) return;
     container.innerHTML = '';
 
@@ -226,13 +209,11 @@ function updateSoftwareList() {
 
     const pc = allPCs.find(p => String(p.id) === String(pcId));
     if (pc && pc.software_name && pc.software_name !== '-') {
-        // ให้เลือกโปรแกรมที่มีในเครื่องนั้นแบบบังคับเลือก 1 อัน
         container.innerHTML = `
             <div class="form-check form-check-inline mb-1">
                 <input class="form-check-input" type="checkbox" id="sw_chk_0" value="${pc.software_name}" checked disabled>
                 <label class="form-check-label small" for="sw_chk_0">${pc.software_name}</label>
             </div>
-            <input type="hidden" name="selected_software" value="${pc.software_name}">
         `;
     } else {
         container.innerHTML = '<span class="text-muted small">- ไม่พบรายการ Software พิเศษในเครื่องนี้ -</span>';
@@ -249,16 +230,14 @@ function toggleSoftwareList() {
 }
 
 // ==========================================
-// 4. RENDER TABLE
+// 4. RENDER TABLE & ACTIONS
 // ==========================================
-
 function renderBookings() {
     const tbody = document.getElementById('bookingTableBody');
     if (!tbody) return;
 
     const filterDate = document.getElementById('bookingDateFilter').value;
     const filterStatus = document.getElementById('bookingStatusFilter').value;
-
     tbody.innerHTML = '';
 
     const filtered = allBookings.filter(b => {
@@ -279,26 +258,16 @@ function renderBookings() {
             case 'APPROVED':
                 badgeClass = 'bg-warning text-dark border border-warning';
                 statusText = '🟡 จองแล้ว (Booked)';
-                actionBtns = `
-                    <button class="btn btn-sm btn-outline-danger" onclick="updateStatus(${b.id}, 'REJECTED')" title="ยกเลิกการจอง">
-                        <i class="bi bi-x-lg"></i> ยกเลิก
-                    </button>
-                `;
+                actionBtns = `<button class="btn btn-sm btn-outline-danger" onclick="updateStatus(${b.id}, 'REJECTED')" title="ยกเลิกการจอง"><i class="bi bi-x-lg"></i> ยกเลิก</button>`;
                 break;
-            case 'COMPLETED':
-                badgeClass = 'bg-success'; statusText = '🟢 ใช้งานเสร็จสิ้น'; break;
-            case 'REJECTED':
-                badgeClass = 'bg-danger bg-opacity-75'; statusText = '❌ ยกเลิกแล้ว'; break;
-            default:
-                badgeClass = 'bg-secondary'; statusText = b.status; break;
+            case 'COMPLETED': badgeClass = 'bg-success'; statusText = '🟢 ใช้งานเสร็จสิ้น'; break;
+            case 'REJECTED': badgeClass = 'bg-danger bg-opacity-75'; statusText = '❌ ยกเลิกแล้ว'; break;
+            default: badgeClass = 'bg-secondary'; statusText = b.status; break;
         }
 
-        let softwareDisplay = '-';
-        if (b.software) {
-            softwareDisplay = `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary"><i class="bi bi-robot me-1"></i>${b.software}</span>`;
-        } else {
-            softwareDisplay = '<span class="badge bg-light text-secondary border">ทั่วไป</span>';
-        }
+        let softwareDisplay = b.software && b.software !== '-' ? 
+            `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary"><i class="bi bi-robot me-1"></i>${b.software}</span>` : 
+            '<span class="badge bg-light text-secondary border">ทั่วไป</span>';
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -324,138 +293,70 @@ function formatDate(dateStr) {
     return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
 
-// ==========================================
-// 5. CRUD OPERATIONS (CREATE / UPDATE)
-// ==========================================
-
 function openBookingModal() {
-    const today = new Date().toISOString().split('T')[0];
     const dateInput = document.getElementById('bkDate');
-    if (dateInput) dateInput.value = today;
+    if (dateInput) dateInput.value = getLocalDateString();
 
     if (document.getElementById('bkPcSelect')) document.getElementById('bkPcSelect').value = '';
     if (document.getElementById('bkTimeSlot')) document.getElementById('bkTimeSlot').value = '09:00-10:30';
-
-    const userInput = document.getElementById('bkUser');
-    if (userInput) userInput.value = '';
-    
-    const hint = document.getElementById('userLookupHint');
-    if (hint) { hint.innerHTML = ''; hint.dataset.verifiedName = ''; }
-
+    if (document.getElementById('bkUser')) document.getElementById('bkUser').value = '';
+    if (document.getElementById('userLookupHint')) { document.getElementById('userLookupHint').innerHTML = ''; document.getElementById('userLookupHint').dataset.verifiedName = ''; }
     if (document.getElementById('bkTypeSelect')) document.getElementById('bkTypeSelect').value = 'General';
     if (document.getElementById('bkSoftwareFilter')) document.getElementById('bkSoftwareFilter').value = '';
 
     filterPCList();
     toggleSoftwareList();
-
     if (bookingModal) bookingModal.show();
 }
 
 async function saveBooking() {
     const pcSelect = document.getElementById('bkPcSelect');
-    // ดึงชื่อ PC เช่น จาก Option "🟢 PC-01 (ว่าง)" ให้เหลือแค่ "PC-01"
-    const pcName = pcSelect.options[pcSelect.selectedIndex].text.split(' ')[1]; 
+    const pcName = pcSelect.value; 
 
     const date = document.getElementById('bkDate').value;
     const timeSlotStr = document.getElementById('bkTimeSlot').value;
     const userId = document.getElementById('bkUser').value.trim();
-    
-    // ดึงชื่อที่ Verify มาแล้ว ถ้าไม่มีให้ใช้ UserID
     const hint = document.getElementById('userLookupHint');
     const userName = (hint && hint.dataset.verifiedName) ? hint.dataset.verifiedName : userId;
 
-    if (!pcSelect.value || !date || !timeSlotStr || !userId) {
+    if (!pcName || !date || !timeSlotStr || !userId) {
         alert("กรุณากรอกข้อมูลและเลือกเครื่องให้ครบถ้วน");
         return;
     }
 
     const [start, end] = timeSlotStr.split('-');
-
-    const payload = {
-        user_id: userId,
-        user_name: userName,
-        pc_name: pcName,
-        date: date,
-        start_time: start,
-        end_time: end
-    };
+    const payload = { user_id: userId, user_name: userName, pc_name: pcName, date: date, start_time: start, end_time: end };
 
     try {
-        const response = await fetch('/kiosk/admin-portal/api/bookings/add/', {
+        const addUrl = window.location.pathname.replace('/booking/', '/api/bookings/add/');
+        const response = await fetch(addUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
             body: JSON.stringify(payload)
         });
 
         const result = await response.json();
-        
         if (result.status === 'success') {
             alert("บันทึกการจองเรียบร้อย");
             if (bookingModal) bookingModal.hide();
-            fetchBookingData(); // รีเฟรชข้อมูลตาราง
-        } else {
-            alert(`ข้อผิดพลาด: ${result.message}`);
-        }
-    } catch (error) {
-        alert("ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่");
-    }
+            fetchBookingData(); 
+        } else { alert(`ข้อผิดพลาด: ${result.message}`); }
+    } catch (error) { alert("ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่"); }
 }
 
 async function updateStatus(bookingId, newStatus) {
     if (newStatus === 'REJECTED' && !confirm("ยืนยันการยกเลิกรายการจองนี้?")) return;
 
     try {
-        const response = await fetch(`/kiosk/admin-portal/api/bookings/${bookingId}/status/`, {
+        const statusUrl = window.location.pathname.replace('/booking/', `/api/bookings/${bookingId}/status/`);
+        const response = await fetch(statusUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
             body: JSON.stringify({ status: newStatus })
         });
 
         const result = await response.json();
-        if (result.status === 'success') {
-            fetchBookingData(); // รีเฟรชตาราง
-        } else {
-            alert(`ข้อผิดพลาด: ${result.message}`);
-        }
-    } catch (error) {
-        alert("อัปเดตสถานะไม่สำเร็จ");
-    }
-}
-
-// ==========================================
-// 6. CSV TEMPLATE DOWNLOAD
-// ==========================================
-
-function downloadCSVTemplate() {
-    const headers = [
-        "user_id",
-        "user_name",
-        "pc_name",
-        "date",
-        "start_time",
-        "end_time"
-    ];
-
-    const sampleRows = [
-        ["66123456", "นายสมชาย ตัวอย่าง", "PC-01", "2026-03-01", "09:00", "10:30"],
-        ["guest001", "นางสมหญิง ทดสอบ", "PC-05", "2026-03-01", "13:30", "15:00"]
-    ];
-
-    let csvContent = "\uFEFF" + headers.join(",") + "\n";
-    sampleRows.forEach(row => {
-        const safeRow = row.map(cell => cell.includes(',') ? `"${cell}"` : cell);
-        csvContent += safeRow.join(",") + "\n";
-    });
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-
-    link.setAttribute("href", url);
-    link.setAttribute("download", "booking_import_template.csv");
-    link.style.visibility = 'hidden';
-
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+        if (result.status === 'success') fetchBookingData(); 
+        else alert(`ข้อผิดพลาด: ${result.message}`);
+    } catch (error) { alert("อัปเดตสถานะไม่สำเร็จ"); }
 }

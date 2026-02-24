@@ -75,44 +75,83 @@ class AdminImportBookingView(LoginRequiredMixin, View):
 # ==========================================
 class AdminBookingDataAPIView(LoginRequiredMixin, View):
     def get(self, request):
-        # 1. ดึงข้อมูลเครื่อง
-        pcs = Computer.objects.all().order_by('name')
-        pc_list = []
-        for p in pcs:
-            pc_list.append({
-                'id': p.name,
-                'name': p.name,
-                'status': p.status,
-                'software_name': p.Software.name if p.Software else '-',
-                'software_type': p.Software.type if p.Software else 'General',
-            })
-        
-        # 2. ดึงข้อมูล Software
-        softwares = Software.objects.all()
-        sw_list = [{'id': s.id, 'name': s.name, 'type': s.type} for s in softwares]
-        
-        # 3. ดึงข้อมูลรายการจอง
-        bookings = Booking.objects.all().order_by('-date', '-start_time')
-        booking_list = []
-        for b in bookings:
-            booking_list.append({
-                'id': b.id,
-                'user_id': b.user_id,
-                'user_name': b.user_name,
-                'pc_name': b.computer.name if b.computer else '-',
-                'date': b.date.strftime('%Y-%m-%d') if b.date else '',
-                'start_time': b.start_time.strftime('%H:%M') if b.start_time else '',
-                'end_time': b.end_time.strftime('%H:%M') if b.end_time else '',
-                'status': b.status,
-                'software': b.computer.Software.name if b.computer and b.computer.Software else ''
-            })
+        try:
+            # 1. ดึงข้อมูลเครื่องคอมพิวเตอร์
+            pcs = Computer.objects.all().order_by('name')
+            print(f"📌 [DEBUG] Booking API: พบข้อมูล PC ทั้งหมด {pcs.count()} เครื่อง")
             
-        return JsonResponse({
-            'status': 'success', 
-            'pcs': pc_list, 
-            'software': sw_list, 
-            'bookings': booking_list
-        })
+            pc_list = []
+            for p in pcs:
+                sw_name = '-'
+                sw_type = 'General'
+                
+                # ดักจับทั้งกรณีที่เป็น ForeignKey และ ManyToManyField
+                try:
+                    sw_obj = getattr(p, 'Software', getattr(p, 'software', None))
+                    if sw_obj:
+                        if hasattr(sw_obj, 'all'): # กรณีเป็น ManyToManyField
+                            sws = sw_obj.all()
+                            if sws.exists():
+                                sw_name = ", ".join([s.name for s in sws])
+                                # ถ้ามีโปรแกรมไหนเป็น AI ให้ถือว่าเครื่องนี้เป็น AI
+                                sw_type = 'AI' if any(s.type == 'AI' for s in sws) else 'General'
+                        else: # กรณีเป็น ForeignKey ปกติ
+                            sw_name = sw_obj.name
+                            sw_type = sw_obj.type
+                except Exception as e:
+                    print(f"⚠️ [WARNING] PC '{p.name}' ดึงข้อมูล Software ไม่ได้: {e}")
+
+                pc_list.append({
+                    'id': p.name, # ใช้ชื่อเครื่องเป็น ID สำหรับ Value ใน Dropdown
+                    'name': p.name,
+                    'status': p.status,
+                    'software_name': sw_name,
+                    'software_type': sw_type,
+                })
+            
+            # 2. ดึงข้อมูล Software
+            softwares = Software.objects.all()
+            sw_list = [{'id': s.id, 'name': s.name, 'type': s.type} for s in softwares]
+            
+            # 3. ดึงข้อมูลรายการจอง
+            bookings = Booking.objects.all().order_by('-date', '-start_time')
+            booking_list = []
+            for b in bookings:
+                sw_name_booking = '-'
+                if b.computer:
+                    try:
+                        b_sw_obj = getattr(b.computer, 'Software', getattr(b.computer, 'software', None))
+                        if b_sw_obj:
+                            if hasattr(b_sw_obj, 'all'):
+                                sws = b_sw_obj.all()
+                                if sws.exists():
+                                    sw_name_booking = ", ".join([s.name for s in sws])
+                            else:
+                                sw_name_booking = b_sw_obj.name
+                    except:
+                        pass
+
+                booking_list.append({
+                    'id': b.id,
+                    'user_id': b.user_id,
+                    'user_name': b.user_name,
+                    'pc_name': b.computer.name if b.computer else '-',
+                    'date': b.date.strftime('%Y-%m-%d') if b.date else '',
+                    'start_time': b.start_time.strftime('%H:%M') if b.start_time else '',
+                    'end_time': b.end_time.strftime('%H:%M') if b.end_time else '',
+                    'status': b.status,
+                    'software': sw_name_booking
+                })
+                
+            return JsonResponse({
+                'status': 'success', 
+                'pcs': pc_list, 
+                'software': sw_list, 
+                'bookings': booking_list
+            })
+        except Exception as e:
+            print(f"❌ [ERROR] Booking API: {str(e)}")
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 
 # ==========================================
