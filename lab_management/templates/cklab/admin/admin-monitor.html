@@ -14,13 +14,17 @@
     }
     
     /* ปรับแต่ง Table สำหรับหน้าจอจอง */
-    .booking-table th { background-color: #f8f9fa; color: #495057; font-weight: 600; }
+    .booking-table th { background-color: #f8f9fa; color: #495057; font-weight: 600; border-top: none; }
     .booking-table td { vertical-align: middle; color: #495057; font-size: 0.9rem; }
 
     /* สไตล์เพิ่มเติมสำหรับฟอร์มใน Modal */
     .form-label-sm { font-size: 0.85rem; font-weight: 600; color: #6c757d; margin-bottom: 4px; }
     .modal-kiosk-input { border-radius: 8px; border: 1px solid #dee2e6; padding: 10px 12px; font-size: 0.95rem; }
     .modal-kiosk-input:focus { border-color: #0d6efd; box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1); }
+    
+    /* Animation สำหรับการอัปเดตข้อมูล */
+    .animate-fade { animation: fadeIn 0.5s; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 </style>
 {% endblock %}
 
@@ -32,8 +36,8 @@
             <i class="bi bi-shield-lock me-2"></i>Admin Panel
         </a>
         <nav class="mt-3">
-            <a href="{% url 'admin_monitor' %}" class="sidebar-link"><i class="bi bi-grid-fill me-2"></i> Monitor</a>
-            <a href="{% url 'admin_manage_pc'%}" class="sidebar-link"><i class="bi bi-pc-display me-2"></i> Manage PC</a>
+            <a href="{% url 'admin_monitor' %}" class="sidebar-link active"><i class="bi bi-grid-fill me-2"></i> Monitor</a>
+            <a href="{% url 'admin_manage_pc' %}" class="sidebar-link"><i class="bi bi-pc-display me-2"></i> Manage PC</a>
             <a href="{% url 'admin_booking' %}" class="sidebar-link"><i class="bi bi-calendar-check-fill me-2"></i> Booking</a>
             <a href="{% url 'admin_software' %}" class="sidebar-link"><i class="bi bi-robot me-2"></i> Manage AI</a>
             <a href="{% url 'admin_config' %}" class="sidebar-link"><i class="bi bi-sliders me-2"></i> System Config</a>
@@ -74,12 +78,11 @@
                             <div class="bg-white text-success rounded-circle p-2 me-2 d-flex justify-content-center align-items-center shadow-sm" style="width: 40px; height: 40px;">
                                 <i class="bi bi-check-lg fs-5 fw-bold"></i>
                             </div>
-                            <div class="small text-white fw-bold text-uppercase" style="letter-spacing: 0.5px;">ว่าง (Available)</div>
+                            <div class="small text-white fw-bold text-uppercase" style="letter-spacing: 0.5px;">ว่าง</div>
                         </div>
-                        <h2 class="fw-bold mb-0 text-white" id="count-available" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.1);">0</h2>
+                        <h2 class="fw-bold mb-0 text-white" id="count-available">0</h2>
                     </div>
-                    <i class="bi bi-check-circle-fill position-absolute end-0 bottom-0 text-white" 
-                       style="font-size: 6rem; opacity: 0.2; margin-bottom: -1rem; margin-right: -1rem; transform: rotate(-15deg);"></i>
+                    <i class="bi bi-check-circle-fill position-absolute end-0 bottom-0 text-white" style="font-size: 6rem; opacity: 0.2; margin-bottom: -1rem; margin-right: -1rem; transform: rotate(-15deg);"></i>
                 </div>
             </div>
 
@@ -90,12 +93,11 @@
                             <div class="bg-white text-danger rounded-circle p-2 me-2 d-flex justify-content-center align-items-center shadow-sm" style="width: 40px; height: 40px;">
                                 <i class="bi bi-person-workspace fs-5 fw-bold"></i>
                             </div>
-                            <div class="small text-white fw-bold text-uppercase" style="letter-spacing: 0.5px;">ใช้งาน (In Use)</div>
+                            <div class="small text-white fw-bold text-uppercase" style="letter-spacing: 0.5px;">ใช้งาน</div>
                         </div>
-                        <h2 class="fw-bold mb-0 text-white" id="count-in_use" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.1);">0</h2>
+                        <h2 class="fw-bold mb-0 text-white" id="count-in_use">0</h2>
                     </div>
-                    <i class="bi bi-people-fill position-absolute end-0 bottom-0 text-white" 
-                       style="font-size: 6rem; opacity: 0.2; margin-bottom: -1rem; margin-right: -1rem; transform: rotate(-15deg);"></i>
+                    <i class="bi bi-people-fill position-absolute end-0 bottom-0 text-white" style="font-size: 6rem; opacity: 0.2; margin-bottom: -1rem; margin-right: -1rem; transform: rotate(-15deg);"></i>
                 </div>
             </div>
 
@@ -106,12 +108,11 @@
                             <div class="bg-white text-warning rounded-circle p-2 me-2 d-flex justify-content-center align-items-center shadow-sm" style="width: 40px; height: 40px;">
                                 <i class="bi bi-bookmark-fill text-dark fs-5 fw-bold"></i>
                             </div>
-                            <div class="small text-dark fw-bold text-uppercase" style="letter-spacing: 0.5px;">จองแล้ว (Reserved)</div>
+                            <div class="small text-dark fw-bold text-uppercase" style="letter-spacing: 0.5px;">จองแล้ว</div>
                         </div>
                         <h2 class="fw-bold mb-0 text-dark" id="count-reserved">0</h2>
                     </div>
-                    <i class="bi bi-clock-history position-absolute end-0 bottom-0 text-dark" 
-                       style="font-size: 6rem; opacity: 0.15; margin-bottom: -1rem; margin-right: -1rem; transform: rotate(-15deg);"></i>
+                    <i class="bi bi-clock-history position-absolute end-0 bottom-0 text-dark" style="font-size: 6rem; opacity: 0.15; margin-bottom: -1rem; margin-right: -1rem; transform: rotate(-15deg);"></i>
                 </div>
             </div>
 
@@ -122,12 +123,11 @@
                             <div class="bg-white text-secondary rounded-circle p-2 me-2 d-flex justify-content-center align-items-center shadow-sm" style="width: 40px; height: 40px;">
                                 <i class="bi bi-wrench-adjustable fs-5 fw-bold"></i>
                             </div>
-                            <div class="small text-white fw-bold text-uppercase" style="letter-spacing: 0.5px;">แจ้งซ่อม (Maint.)</div>
+                            <div class="small text-white fw-bold text-uppercase" style="letter-spacing: 0.5px;">แจ้งซ่อม</div>
                         </div>
-                        <h2 class="fw-bold mb-0 text-white" id="count-maintenance" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.1);">0</h2>
+                        <h2 class="fw-bold mb-0 text-white" id="count-maintenance">0</h2>
                     </div>
-                    <i class="bi bi-tools position-absolute end-0 bottom-0 text-white" 
-                       style="font-size: 6rem; opacity: 0.2; margin-bottom: -1rem; margin-right: -1rem; transform: rotate(-15deg);"></i>
+                    <i class="bi bi-tools position-absolute end-0 bottom-0 text-white" style="font-size: 6rem; opacity: 0.2; margin-bottom: -1rem; margin-right: -1rem; transform: rotate(-15deg);"></i>
                 </div>
             </div>
         </div>
@@ -169,7 +169,7 @@
             <div class="tab-pane fade" id="panel-booking" role="tabpanel">
                 <div class="card border-0 shadow-sm overflow-hidden">
                     <div class="card-header bg-white border-bottom py-3">
-                        <h6 class="mb-0 fw-bold text-primary"><i class="bi bi-calendar-check me-2"></i>ตารางการจองในอนาคต</h6>
+                        <h6 class="mb-0 fw-bold text-primary"><i class="bi bi-calendar-check me-2"></i>คิวการจองคอมพิวเตอร์ล่วงหน้า</h6>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
@@ -179,13 +179,15 @@
                                         <th class="ps-4">วันที่จอง</th>
                                         <th>เวลา / รอบ</th>
                                         <th>เครื่อง (PC)</th>
-                                        <th>ผู้ทำรายการ</th>
+                                        <th>รหัสผู้จอง</th>
                                         <th>สถานะ</th>
                                     </tr>
                                 </thead>
-                                <tbody id="futureBookingTable">
+                                <tbody id="futureBookingTableBody">
                                     <tr>
-                                        <td colspan="5" class="text-center py-4 text-muted">ไม่พบข้อมูลการจอง</td>
+                                        <td colspan="5" class="text-center py-5 text-muted">
+                                            <div class="spinner-border spinner-border-sm text-primary me-2"></div> กำลังโหลดข้อมูลคิวจอง...
+                                        </td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -201,20 +203,17 @@
 <div class="modal fade" id="manageActiveModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
-            
             <div class="text-center py-4 bg-white border-bottom position-relative">
                 <img src="{% static 'cklab/img/ubulogo.png' %}" alt="Logo" class="mb-2" style="height: 60px;">
                 <h5 class="fw-bold text-danger mb-0">จัดการเครื่อง (กำลังใช้งาน)</h5>
                 <button type="button" class="btn-close position-absolute top-0 end-0 m-3" data-bs-dismiss="modal"></button>
             </div>
-
             <div class="modal-body p-4 bg-light">
                 <div class="badge bg-white text-dark shadow-sm border px-3 py-2 rounded-pill mb-4 w-100 d-flex align-items-center justify-content-center">
                     <span class="status-indicator bg-danger rounded-circle d-inline-block" style="width: 8px; height: 8px; margin-right: 8px;"></span>
                     <span class="small fw-bold text-muted me-2">กำลังจัดการเครื่อง:</span>
                     <strong id="managePcName" class="text-danger fs-5">Station: -</strong>
                 </div>
-
                 <div class="card border-0 shadow-sm p-4 mb-4 bg-white text-center" style="border-radius: 12px;">
                     <div class="bg-danger bg-opacity-10 text-danger rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 60px; height: 60px;">
                         <i class="bi bi-person-workspace fs-3"></i>
@@ -222,14 +221,10 @@
                     <h6 class="text-muted mb-1 fw-bold">ผู้ใช้งานปัจจุบัน</h6>
                     <h4 class="fw-bold text-dark mb-0" id="manageUserName">-</h4>
                 </div>
-
                 <div class="mt-2 pt-2 border-top">
                     <button onclick="confirmForceLogout()" class="btn btn-danger w-100 py-3 fw-bold shadow-sm rounded-3">
                         <i class="bi bi-box-arrow-right me-2"></i> ล็อคเอาท์แทนผู้ใช้ (Force Check-out)
                     </button>
-                    <p class="text-center mt-3 mb-0 text-muted small">
-                        <i class="bi bi-info-circle me-1"></i>ดำเนินการโดยแอดมิน: <strong>{{ request.user.username }}</strong>
-                    </p>
                 </div>
                 <input type="hidden" id="managePcId">
             </div>
@@ -238,21 +233,19 @@
 </div>
 
 <div class="modal fade" id="checkInModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
             <div class="text-center py-4 bg-white border-bottom position-relative">
                 <img src="{% static 'cklab/img/ubulogo.png' %}" alt="Logo" class="mb-2" style="height: 60px;">
                 <h5 class="fw-bold text-primary mb-0">ลงชื่อเข้าใช้งานแทนผู้ใช้</h5>
                 <button type="button" class="btn-close position-absolute top-0 end-0 m-3" data-bs-dismiss="modal"></button>
             </div>
-
             <div class="modal-body p-4 bg-light">
                 <div class="badge bg-white text-dark shadow-sm border px-3 py-2 rounded-pill mb-4 w-100 d-flex align-items-center justify-content-center">
                     <span class="status-indicator bg-success rounded-circle d-inline-block" style="width: 8px; height: 8px; margin-right: 8px;"></span>
-                    <span class="small fw-bold text-muted me-2">กำลังจัดการเครื่อง:</span>
+                    <span class="small fw-bold text-muted me-2">เครื่อง:</span>
                     <strong id="modalPcName" class="text-primary fs-5">Station: -</strong>
                 </div>
-
                 <ul class="nav nav-pills nav-fill mb-4 bg-white p-1 rounded-pill border shadow-sm" role="tablist">
                     <li class="nav-item">
                         <button class="nav-link active rounded-pill fw-bold" id="tab-internal" onclick="switchTab('internal')">
@@ -265,49 +258,29 @@
                         </button>
                     </li>
                 </ul>
-
                 <div id="formInternal" class="animate-fade">
-                    <div class="row g-3">
-                        <div class="col-md-12">
-                            <label class="form-label small fw-bold text-muted ps-2">รหัสบุคลากร / UBU Account</label>
-                            <div class="input-group shadow-sm mb-3">
-                                <span class="input-group-text bg-white border-end-0 ps-3"><i class="bi bi-person-badge text-primary"></i></span>
-                                <input type="text" class="form-control form-control-lg border-start-0 ps-0" id="ubuUser" placeholder="ระบุรหัสเพื่อตรวจสอบ">
-                                <button class="btn btn-primary px-4 fw-bold" type="button" onclick="verifyUBUUser()">ตรวจสอบ</button>
-                            </div>
-                        </div>
+                    <label class="form-label small fw-bold text-muted ps-2">รหัสนักศึกษา / บุคลากร</label>
+                    <div class="input-group shadow-sm mb-3">
+                        <span class="input-group-text bg-white border-end-0 ps-3"><i class="bi bi-person-badge text-primary"></i></span>
+                        <input type="text" class="form-control form-control-lg border-start-0 ps-0" id="ubuUser" placeholder="ระบุรหัสเพื่อตรวจสอบ">
+                        <button class="btn btn-primary px-4 fw-bold" type="button" onclick="verifyUBUUser()">ตรวจสอบ</button>
                     </div>
-
                     <div id="internalVerifyCard" class="card border-0 shadow-sm p-3 d-none bg-white mb-3">
-                        <div class="d-flex align-items-center mb-3">
+                        <div class="d-flex align-items-center">
                             <div class="bg-success bg-opacity-10 text-success rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 45px; height: 45px;">
                                 <i class="bi bi-person-check-fill fs-4"></i>
                             </div>
                             <div>
                                 <h6 class="mb-0 fw-bold text-success">ยืนยันตัวตนสำเร็จ</h6>
-                                <small class="text-muted">ข้อมูลที่พบในระบบ</small>
-                            </div>
-                        </div>
-                        <div class="border-top pt-2">
-                            <div class="d-flex justify-content-between mb-1">
-                                <span class="text-muted small">ชื่อผู้ใช้:</span>
-                                <strong id="showName" class="text-dark">-</strong>
-                            </div>
-                            <div class="d-flex justify-content-between mb-1">
-                                <span class="text-muted small">สังกัด:</span>
-                                <span id="showFaculty" class="text-end">-</span>
+                                <div class="small text-dark mt-1">ชื่อ: <strong id="showName">-</strong></div>
+                                <div class="small text-muted">สังกัด: <span id="showFaculty">-</span></div>
                             </div>
                         </div>
                     </div>
-
-                    <input type="hidden" id="userType" value="student">
-                    <input type="hidden" id="userYear" value="-">
-
                 </div>
-
                 <div id="formExternal" class="d-none animate-fade">
                     <div class="mb-3">
-                        <label class="form-label small fw-bold text-muted ps-2">เลขบัตรประชาชน / Passport <span class="text-danger">*</span></label>
+                        <label class="form-label small fw-bold text-muted ps-2">เลขบัตรประชาชน / Passport</label>
                         <div class="input-group shadow-sm">
                             <span class="input-group-text bg-white border-end-0 ps-3"><i class="bi bi-card-heading text-primary"></i></span>
                             <input type="text" id="extIdCard" class="form-control border-start-0 py-2" placeholder="ระบุหมายเลข">
@@ -315,23 +288,19 @@
                     </div>
                     <div class="row g-2">
                         <div class="col-md-6">
-                            <label class="form-label small fw-bold text-muted ps-2">ชื่อ - นามสกุล <span class="text-danger">*</span></label>
+                            <label class="form-label small fw-bold text-muted ps-2">ชื่อ - นามสกุล</label>
                             <input type="text" id="extName" class="form-control modal-kiosk-input shadow-sm" placeholder="ระบุชื่อจริง">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small fw-bold text-muted ps-2">หน่วยงาน <span class="text-muted fw-normal small">(ถ้ามี)</span></label>
+                            <label class="form-label small fw-bold text-muted ps-2">หน่วยงาน (ถ้ามี)</label>
                             <input type="text" id="extOrg" class="form-control modal-kiosk-input shadow-sm" placeholder="ระบุสังกัด">
                         </div>
                     </div>
                 </div>
-
                 <div class="mt-4 pt-3 border-top">
-                    <button id="btnConfirm" onclick="submitAdminCheckIn()" class="btn btn-secondary w-100 py-3 fw-bold shadow-sm rounded-3" disabled>
+                    <button id="btnConfirm" onclick="submitAdminCheckIn()" class="btn btn-success w-100 py-3 fw-bold shadow-sm rounded-3" disabled>
                         <i class="bi bi-box-arrow-in-right me-2"></i>ยืนยันและเช็คอินทันที
                     </button>
-                    <p class="text-center mt-3 mb-0 text-muted small">
-                        <i class="bi bi-info-circle me-1"></i>ดำเนินการโดยแอดมิน: <strong>{{ request.user.username }}</strong>
-                    </p>
                 </div>
                 <input type="hidden" id="checkInPcId">
             </div>

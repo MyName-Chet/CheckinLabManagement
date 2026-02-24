@@ -20,19 +20,18 @@ class AdminMonitorView(LoginRequiredMixin, View):
 
 
 # ==========================================
-# 2. API สำหรับส่งข้อมูลสถานะเครื่องแบบ Real-time (JSON)
+# 2. API สำหรับส่งข้อมูลสถานะเครื่องและคิวจอง (Real-time JSON)
 # ==========================================
 class AdminMonitorDataAPIView(LoginRequiredMixin, View):
     def get(self, request):
+        now = timezone.now()
         computers = Computer.objects.all().order_by('name')
         
-        # ดึงประวัติคนที่กำลังใช้งานอยู่ทั้งหมด (ยังไม่ได้ Check-out)
+        # 2.1 ดึงประวัติคนที่กำลังใช้งานอยู่ทั้งหมด (ยังไม่ได้ Check-out)
         active_logs = UsageLog.objects.filter(end_time__isnull=True)
         active_users_map = {log.computer: log for log in active_logs}
 
-        now = timezone.now()
         pc_list = []
-        
         for pc in computers:
             user_name = ''
             elapsed_time = '00:00:00'
@@ -44,20 +43,19 @@ class AdminMonitorDataAPIView(LoginRequiredMixin, View):
                 user_name = log.user_name
                 
                 diff = now - log.start_time
-                hours, remainder = divmod(diff.seconds, 3600)
+                hours, remainder = divmod(int(diff.total_seconds()), 3600)
                 minutes, seconds = divmod(remainder, 60)
                 elapsed_time = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
-            # ดึงเวลาคิวจองถัดไป (ถ้ามี)
-            if pc.status in ['AVAILABLE', 'RESERVED']:
-                next_booking = Booking.objects.filter(
-                    computer=pc, 
-                    status='APPROVED', 
-                    start_time__gte=now
-                ).order_by('start_time').first()
-                
-                if next_booking:
-                    next_booking_time = next_booking.start_time.strftime("%H:%M")
+            # ดึงเวลาคิวจองถัดไปของเครื่องนี้ (เฉพาะที่ได้รับการอนุมัติและยังไม่ถึงเวลาสิ้นสุด)
+            next_booking = Booking.objects.filter(
+                computer=pc, 
+                status='APPROVED', 
+                end_time__gte=now
+            ).order_by('start_time').first()
+            
+            if next_booking:
+                next_booking_time = next_booking.start_time.strftime("%H:%M")
 
             # ตรวจสอบซอฟต์แวร์
             is_ai = False
@@ -78,7 +76,24 @@ class AdminMonitorDataAPIView(LoginRequiredMixin, View):
                 'last_updated': pc.last_updated.strftime("%H:%M:%S") if pc.last_updated else '-'
             })
 
-        # นับจำนวนสถานะทั้งหมด
+        # 2.2 ดึงข้อมูลคิวจองล่วงหน้าทั้งหมด (สำหรับแสดงในตารางแท็บ "คิวจองล่วงหน้า")
+        # ดึงเฉพาะรายการที่สถานะ APPROVED และยังไม่หมดเวลา
+        future_bookings = Booking.objects.filter(
+            status='APPROVED',
+            end_time__gte=now
+        ).order_by('start_time')
+
+        booking_list = []
+        for b in future_bookings:
+            booking_list.append({
+                'date': b.start_time.strftime('%d/%m/%Y'),
+                'time': f"{b.start_time.strftime('%H:%M')} - {b.end_time.strftime('%H:%M')}",
+                'pc_name': b.computer.name if b.computer else 'ไม่ระบุ',
+                'user_id': b.student_id,
+                'status': b.status
+            })
+
+        # 2.3 นับจำนวนสถานะทั้งหมด
         counts = {
             'AVAILABLE': computers.filter(status='AVAILABLE').count(),
             'IN_USE': computers.filter(status='IN_USE').count(),
@@ -87,7 +102,12 @@ class AdminMonitorDataAPIView(LoginRequiredMixin, View):
             'total': computers.count(),
         }
 
-        return JsonResponse({'status': 'success', 'pcs': pc_list, 'counts': counts})
+        return JsonResponse({
+            'status': 'success', 
+            'pcs': pc_list, 
+            'bookings': booking_list, # ข้อมูลใหม่สำหรับตารางคิวจอง
+            'counts': counts
+        })
 
 
 # ==========================================
@@ -97,7 +117,6 @@ class AdminCheckinView(LoginRequiredMixin, View):
     def post(self, request, pc_id):
         pc = get_object_or_404(Computer, name=pc_id)
         
-        # ป้องกันไม่ให้เช็คอินซ้อน
         if pc.status in ['IN_USE', 'MAINTENANCE']:
             return JsonResponse({'status': 'error', 'message': f'เครื่องนี้สถานะ {pc.status} ไม่สามารถเช็คอินได้'}, status=400)
 
@@ -111,14 +130,11 @@ class AdminCheckinView(LoginRequiredMixin, View):
         except:
             return JsonResponse({'status': 'error', 'message': 'รูปแบบข้อมูลไม่ถูกต้อง'}, status=400)
 
-        # เปลี่ยนสถานะเครื่อง
         pc.status = 'IN_USE'
         pc.save()
 
-        # เก็บชื่อซอฟต์แวร์ที่เครื่องนี้มี
         sw_name = pc.Software.name if pc.Software else None
 
-        # บันทึกประวัติการใช้งาน
         UsageLog.objects.create(
             user_id=user_id,
             user_name=user_name,
@@ -139,14 +155,12 @@ class AdminCheckoutView(LoginRequiredMixin, View):
     def post(self, request, pc_id):
         pc = get_object_or_404(Computer, name=pc_id)
         
-        # ค้นหาประวัติการใช้งานที่ยังไม่สิ้นสุดของเครื่องนี้
         active_log = UsageLog.objects.filter(computer=pc.name, end_time__isnull=True).last()
         
         if active_log:
             active_log.end_time = timezone.now()
             active_log.save()
 
-        # เคลียร์สถานะเครื่องให้กลับมาว่าง
         pc.status = 'AVAILABLE'
         pc.save()
 
