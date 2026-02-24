@@ -24,6 +24,40 @@ class IndexView(View):
         pc_name = request.GET.get('pc')
         if not pc_name:
             pc_name = 'PC-01'
+            
+        computer = Computer.objects.filter(name=pc_name).first()
+        
+        # ✅ ระบบ "กันหลุด" & "Auto-Fix"
+        if computer and computer.status.upper() == 'IN_USE':
+            
+            # ค้นหาประวัติที่ยังไม่ได้ Check-out
+            active_log = UsageLog.objects.filter(computer=computer.name, end_time__isnull=True).last()
+            
+            # (เขียนดักเผื่อกรณี field computer ใน UsageLog ถูกตั้งเป็น ForeignKey)
+            if not active_log:
+                try:
+                    active_log = UsageLog.objects.filter(computer=computer, end_time__isnull=True).last()
+                except:
+                    pass
+
+            if active_log:
+                # 🟢 กรณีปกติ: เจอประวัติที่ยังไม่เช็คเอาท์ -> เด้งไปหน้า Timer ทันที (พร้อมเวลาเดิม)
+                start_time_ms = int(active_log.start_time.timestamp() * 1000) if active_log.start_time else 0
+                sw_name = computer.Software.name if computer.Software else "General Use"
+                
+                context = {
+                    'computer': computer,
+                    'log_id': active_log.id,
+                    'software_name': sw_name,
+                    'start_time_ms': start_time_ms,
+                    'user_name': active_log.user_name
+                }
+                return render(request, 'cklab/kiosk/timer.html', context)
+            else:
+                # 👻 GHOST STATE: สถานะเครื่องค้าง (IN_USE แต่หาข้อมูลคนนั่งไม่เจอ)
+                # Auto-Fix: ปรับสถานะเครื่องกลับเป็น "ว่าง" อัตโนมัติ เพื่อให้หน้าจอไม่เป็นปุ่มเทาค้าง
+                computer.status = 'AVAILABLE'
+                computer.save()
         
         context = {
             'config': config,
@@ -147,6 +181,9 @@ class CheckinView(View):
         if form.is_valid():
             cleaned_data = form.cleaned_data
             
+            # เช็คว่าคอมเครื่องนี้มี Software ผูกอยู่ไหม
+            sw_name = computer.Software.name if computer.Software else "General Use"
+            
             # สร้างประวัติการใช้งานด้วยข้อมูลที่ผ่าน Form Validation แล้ว
             usage_log = UsageLog.objects.create(
                 user_id=cleaned_data.get('user_id'),
@@ -155,14 +192,24 @@ class CheckinView(View):
                 department=cleaned_data.get('department', ''),
                 user_year=cleaned_data.get('user_year', ''),  
                 computer=computer.name,
-                Software=computer.Software.name if computer.Software else None
+                Software=sw_name # บันทึกชื่อซอฟต์แวร์ลง Log ด้วย
             )
 
             # อัปเดตสถานะเครื่อง
             computer.status = 'IN_USE'
             computer.save()
 
-            return render(request, 'cklab/kiosk/timer.html', {'computer': computer, 'log_id': usage_log.id})
+            # ✅ แปลงเวลาที่เพิ่ง Check-in เพื่อส่งให้หน้า timer (กันบั๊กเวลาเป็น 0)
+            start_time_ms = int(usage_log.start_time.timestamp() * 1000) if usage_log.start_time else 0
+
+            context = {
+                'computer': computer,
+                'log_id': usage_log.id,
+                'software_name': sw_name,
+                'start_time_ms': start_time_ms,
+                'user_name': usage_log.user_name
+            }
+            return render(request, 'cklab/kiosk/timer.html', context)
         else:
             # หากข้อมูลที่ส่งมาไม่ถูกต้อง ให้เด้งกลับไปหน้าแรก
             return redirect(f"{reverse('kiosk_index')}?pc={pc_id}&error=invalid_data")

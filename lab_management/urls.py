@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import kiosk, auth, monitor, manage_pc, software , report , config , booking
+from .views import kiosk, auth, monitor, manage_pc, software , report , config , booking 
 
 urlpatterns = [
     # 1. ฝั่งผู้ใช้งาน (User / Kiosk) - ผู้รับผิดชอบ: ปภังกร
@@ -19,12 +19,15 @@ urlpatterns = [
 
     # 3. ฝั่งผู้ดูแลระบบ (Admin Portal)
     path('admin-portal/monitor/', monitor.AdminMonitorView.as_view(), name='admin_monitor'), # ธนสิทธิ์ (สำรอง โดย ปภังกร)
+    path('admin-portal/api/monitor/data/', monitor.AdminMonitorDataAPIView.as_view(), name='api_monitor_data'),# ธนสิทธิ์ (สำรอง โดย ปภังกร)
     path('admin-portal/checkin/<str:pc_id>/', monitor.AdminCheckinView.as_view(), name='admin_checkin'), # ธนสิทธิ์ (สำรอง โดย ปภังกร)
     path('admin-portal/checkout/<str:pc_id>/', monitor.AdminCheckoutView.as_view(), name='admin_checkout'), # ธนสิทธิ์ (สำรอง โดย ปภังกร)
     
     path('admin-portal/booking/', booking.AdminBookingView.as_view(), name='admin_booking'), # อัษฎาวุธ (สำรอง โดย ลลิดา)
-    path('admin-portal/booking/<int:pk>/', booking.AdminBookingDetailView.as_view(), name='admin_booking_detail'), # อัษฎาวุธ (สำรอง โดย ลลิดา)
     path('admin-portal/booking/import/', booking.AdminImportBookingView.as_view(), name='admin_booking_import'), # อัษฎาวุธ  (สำรอง โดย ลลิดา)
+    path('admin-portal/api/bookings/data/', booking.AdminBookingDataAPIView.as_view(), name='api_booking_data'),# อัษฎาวุธ  (สำรอง โดย ลลิดา)
+    path('admin-portal/api/bookings/add/', booking.AdminBookingAddAPIView.as_view(), name='api_booking_add'), # อัษฎาวุธ  (สำรอง โดย ลลิดา)
+    path('admin-portal/api/bookings/<int:pk>/status/', booking.AdminBookingStatusAPIView.as_view(), name='api_booking_status'), # อัษฎาวุธ  (สำรอง โดย ลลิดา)
     
     path('admin-portal/manage-pc/', manage_pc.AdminManagePcView.as_view(), name='admin_manage_pc'), # ณัฐกรณ์  (สำรอง โดย ลลิดา)
     path('admin-portal/manage-pc/add/', manage_pc.AdminAddPcView.as_view(), name='admin_add_pc'), # ณัฐกรณ์
