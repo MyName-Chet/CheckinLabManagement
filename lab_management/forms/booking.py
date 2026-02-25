@@ -1,65 +1,62 @@
 # อัษฎาวุธ — Booking Forms
 from django import forms
+from lab_management.models import Booking, Computer
 
-from ..models import Booking, Computer
-
-
-class BookingForm(forms.Form):
-    student_id = forms.CharField(
-        max_length=20,
-        label="รหัสนักศึกษา",
-        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "เช่น 66123456"}),
-    )
-    computer = forms.ModelChoiceField(
-        queryset=Computer.objects.all().order_by("name"),
-        empty_label="-- กรุณาเลือกเครื่อง --",
-        label="เครื่องคอมพิวเตอร์",
-        widget=forms.Select(attrs={"class": "form-select"}),
-    )
-    start_time = forms.DateTimeField(
-        input_formats=["%Y-%m-%dT%H:%M"],
-        label="เวลาเริ่มใช้งาน",
-        widget=forms.DateTimeInput(attrs={"class": "form-control", "type": "datetime-local"}),
-    )
-    end_time = forms.DateTimeField(
-        input_formats=["%Y-%m-%dT%H:%M"],
-        label="เวลาสิ้นสุดการใช้งาน",
-        widget=forms.DateTimeInput(attrs={"class": "form-control", "type": "datetime-local"}),
-    )
-    status = forms.ChoiceField(
-        choices=Booking.STATUS_CHOICES,
-        initial="APPROVED",
-        label="สถานะ",
-        widget=forms.Select(attrs={"class": "form-select"}),
-    )
+class BookingForm(forms.ModelForm):
+    class Meta:
+        model = Booking
+        fields = ['student_id', 'computer', 'start_time', 'end_time', 'status']
+        
+        # กำหนด Widgets เพื่อจัดการหน้าตาและคุณสมบัติของ Input
+        widgets = {
+            'student_id': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'รหัสนักศึกษา หรือ รหัสบุคลากร',
+                'required': 'true'
+            }),
+            'computer': forms.Select(attrs={
+                'class': 'form-select',
+                'required': 'true'
+            }),
+            'start_time': forms.DateTimeInput(attrs={
+                'class': 'form-control',
+                'type': 'datetime-local',
+                'required': 'true'
+            }),
+            'end_time': forms.DateTimeInput(attrs={
+                'class': 'form-control',
+                'type': 'datetime-local',
+                'required': 'true'
+            }),
+            'status': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+        }
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["computer"].queryset = Computer.objects.all().order_by("name")
+        super(BookingForm, self).__init__(*args, **kwargs)
+        # กรองรายการคอมพิวเตอร์ให้เลือกเฉพาะเครื่องที่พร้อมใช้งาน (ไม่รวมเครื่องที่แจ้งซ่อม)
+        self.fields['computer'].queryset = Computer.objects.exclude(status='MAINTENANCE').order_by('name')
+        self.fields['computer'].empty_label = "-- เลือกหมายเลขเครื่อง (PC) --"
 
     def clean(self):
         cleaned_data = super().clean()
-        computer = cleaned_data.get("computer")
         start_time = cleaned_data.get("start_time")
         end_time = cleaned_data.get("end_time")
 
-        if not computer or not start_time or not end_time:
-            return cleaned_data
-
-        if end_time <= start_time:
-            raise forms.ValidationError("เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม")
-
-        is_conflict = Booking.objects.filter(
-            computer=computer,
-            status__in=["PENDING", "APPROVED"],
-            start_time__lt=end_time,
-            end_time__gt=start_time,
-        ).exists()
-        if is_conflict:
-            raise forms.ValidationError("ช่วงเวลานี้มีการจองเครื่องนี้แล้ว")
-
+        # ตรวจสอบว่าเวลาเลิกใช้งานต้องมากกว่าเวลาเริ่มใช้งาน
+        if start_time and end_time:
+            if end_time <= start_time:
+                raise forms.ValidationError("❌ เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่มต้น")
+        
         return cleaned_data
 
 
 class ImportBookingForm(forms.Form):
-    pass
+    csv_file = forms.FileField(
+        label='เลือกไฟล์ CSV',
+        widget=forms.FileInput(attrs={
+            'class': 'form-control',
+            'accept': '.csv'
+        })
+    )

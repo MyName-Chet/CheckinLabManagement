@@ -1,36 +1,69 @@
 {% extends 'cklab/base.html' %}
 {% load static %}
-{% block title %}Feedback{% endblock %}
+
+{% block title %}ขอบคุณที่ใช้บริการ - {{ config.lab_name|default:"CKLab" }}{% endblock %}
+
+{% block extra_head %}
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="{% static 'cklab/css/main.css' %}?v={% now 'U' %}" rel="stylesheet">
+
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-center align-items-center min-vh-100 py-4 bg-light">
-    <div class="card shadow-lg border-0 text-center" style="max-width: 500px; width: 100%; border-radius: 20px;">
-        <div class="card-body py-5 px-4">
-            <h3 class="fw-bold text-primary">เลิกใช้งานสำเร็จ!</h3>
-            <p class="text-muted">ขอบคุณที่ใช้บริการ</p>
-            <hr class="my-4 opacity-10">
-            <form method="POST">
+<div class="d-flex justify-content-center align-items-center min-vh-100 py-2">
+    <div class="kiosk-card w-100 text-center animate-fade shadow-lg border-0 rounded-4 overflow-hidden" style="max-width: 500px; background: white;">
+        
+        <div class="kiosk-body p-4">
+            
+            <div class="success-animation mb-2">
+                <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                    <circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none" />
+                    <path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8" />
+                </svg>
+            </div>
+
+            <h3 class="fw-bold mt-2 text-primary">เลิกใช้งานสำเร็จ!</h3>
+            <p class="text-muted mb-0">ขอบคุณที่ใช้บริการ {{ config.lab_name|default:"CKLab" }}</p>
+
+            <hr class="my-3 opacity-10">
+
+            <form id="feedbackForm" method="POST">
                 {% csrf_token %}
-                <p class="fw-bold">ความพึงพอใจของคุณ</p>
-                <div class="star-rating mb-2" id="starContainer">
-                    <span data-value="1" style="font-size: 2.5rem; cursor: pointer;">★</span>
-                    <span data-value="2" style="font-size: 2.5rem; cursor: pointer;">★</span>
-                    <span data-value="3" style="font-size: 2.5rem; cursor: pointer;">★</span>
-                    <span data-value="4" style="font-size: 2.5rem; cursor: pointer;">★</span>
-                    <span data-value="5" style="font-size: 2.5rem; cursor: pointer;">★</span>
-                </div>
-                <input type="hidden" name="rating" id="ratingInput" value="5">
-                <div id="rateText" class="fw-bold mb-4 text-success">ยอดเยี่ยม (5/5)</div>
                 
-                <div class="text-start mb-4">
-                    <label class="form-label small text-muted">ข้อเสนอแนะเพิ่มเติม</label>
-                    <textarea name="comment" class="form-control" rows="2"></textarea>
+                <p class="mb-2 fw-bold text-secondary">ความพึงพอใจของคุณ</p>
+                
+                <div class="star-rating mb-1" id="starContainer">
+                    <span onclick="setRate(1)" onmouseover="hoverStar(1)" onmouseout="resetHover()">★</span>
+                    <span onclick="setRate(2)" onmouseover="hoverStar(2)" onmouseout="resetHover()">★</span>
+                    <span onclick="setRate(3)" onmouseover="hoverStar(3)" onmouseout="resetHover()">★</span>
+                    <span onclick="setRate(4)" onmouseover="hoverStar(4)" onmouseout="resetHover()">★</span>
+                    <span onclick="setRate(5)" onmouseover="hoverStar(5)" onmouseout="resetHover()">★</span>
                 </div>
-                <button type="submit" class="btn btn-primary w-100 py-3 rounded-pill fw-bold">ส่งข้อมูล</button>
+                
+                <input type="hidden" name="satisfaction_score" id="scoreValue" value="5">
+
+                <div id="rateText" class="fw-bold mb-3" style="color: #198754; font-size: 0.95rem;">ยอดเยี่ยม (5/5)</div>
+
+                <div class="feedback-box">
+                    <label class="text-label text-start w-100 mb-2">ข้อเสนอแนะเพิ่มเติม (Optional)</label>
+                    <textarea name="comment" id="comment" class="form-control" rows="2" placeholder="พิมพ์ข้อความที่นี่..."></textarea>
+                </div>
+
+                <button type="button" onclick="submitFeedback()" class="btn btn-primary w-100 py-3 mt-3 shadow-sm fw-bold">
+                    ส่งข้อมูลและกลับหน้าหลัก
+                </button>
             </form>
+
         </div>
     </div>
 </div>
 {% endblock %}
-{% block extra_js %}
-<script src="{% static 'cklab/js/feedback.js' %}"></script>
+
+{% block extra_scripts %}
+<script>
+    const PC_ID = "{{ pc_id }}";
+    const LOG_ID = "{{ log_id }}";
+</script>
+
+<script src="{% static 'cklab/js/feedback.js' %}?v={% now 'U' %}"></script>
 {% endblock %}

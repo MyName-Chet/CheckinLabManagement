@@ -1,39 +1,64 @@
 {% extends 'cklab/base.html' %}
 {% load static %}
-{% block title %}Active Session{% endblock %}
+
+{% block title %}กำลังใช้งาน - Station {{ computer.name|default:"Unknown" }}{% endblock %}
+
+{% block extra_head %}
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="{% static 'cklab/css/main.css' %}?v={% now 'U' %}" rel="stylesheet">
+
+<style>
+    /* ซ่อน Navbar / Sidebar เพื่อให้เป็น Kiosk เต็มจอ */
+    header, nav, .sidebar, .navbar { display: none !important; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-center align-items-center min-vh-100 bg-light">
-    <div class="card border-0 shadow-lg" style="max-width: 450px; width: 100%; border-radius: 20px;">
-        <div class="bg-primary text-white text-center py-4">
-            <img src="{% static 'cklab/img/ubulogo.png' %}" style="height: 50px;" class="bg-white rounded-circle p-2 mb-2">
-            <h4 class="fw-bold">กำลังใช้งาน</h4>
-            <p class="small opacity-75">PC-{{ computer.pc_id }}</p>
-        </div>
-        <div class="card-body p-4 text-center">
-            <span class="badge bg-light text-dark border px-3 py-2 rounded-pill mb-4">{{ user_name }}</span>
-            <div class="display-1 fw-bold text-primary mb-2" id="timerDisplay">00:00:00</div>
-            <small class="text-muted d-block mb-4">เวลาที่ใช้งาน (Elapsed)</small>
+<div class="d-flex align-items-center justify-content-center min-vh-100 text-dark timer-page-bg">
+    
+    <div class="text-center w-100 animate-fade" style="max-width: 600px;">
+        
+        <img src="{% static 'cklab/img/ubu_logo.png' %}" alt="UBU Logo" height="50" class="mb-4 opacity-75" onerror="this.style.display='none';">
+
+        <h5 class="text-muted mb-2">ผู้ใช้งานปัจจุบัน</h5>
+        <h2 id="userNameDisplay" class="mb-4 fw-bold" style="color: var(--accent);">กำลังโหลดชื่อ...</h2>
+        
+        <div class="card timer-simple-card position-relative overflow-hidden mx-auto mb-4">
             
-            <div id="alertBox" class="alert alert-warning d-none"><span id="alertMsg"></span></div>
+            <h1 class="display-1 fw-bold mb-0" id="timerDisplay" style="color: var(--accent); letter-spacing: -2px;">00:00:00</h1>
+            <small class="text-muted mt-2 d-block fs-6" id="timerLabel">ระยะเวลาที่ใช้งาน (Usage Time)</small>
             
-            <button onclick="doCheckout()" class="btn btn-danger w-100 py-3 rounded-pill fw-bold shadow-sm">
-                <i class="bi bi-power me-2"></i> เลิกใช้งาน
-            </button>
+            <div id="alertBox" class="alert alert-warning mt-4 mb-0 d-none text-start animate-fade rounded-3 border-0 shadow-sm">
+                <i class="bi bi-exclamation-triangle-fill me-2 text-warning"></i>
+                <span id="alertMsg" class="text-dark">แจ้งเตือน...</span>
+            </div>
         </div>
+
+        <h4 class="mb-4">
+            <span class="badge px-4 py-2 shadow-sm rounded-pill" id="pcNameDisplay" style="background-color: var(--primary); font-size: 1rem; font-weight: 500;">
+                <span class="status-indicator bg-success" style="width: 8px; height: 8px; margin-right: 6px;"></span>
+                Station: {{ computer.name|default:"-" }}
+            </span>
+        </h4>
+
+        <div class="d-grid gap-3 d-sm-flex justify-content-center mt-2">
+            <form id="checkoutForm" method="POST" action="{% url 'kiosk_checkout' computer.name %}">
+                {% csrf_token %}
+                <button type="button" onclick="doCheckout()" class="btn btn-danger btn-lg px-5 py-3 rounded-pill fw-bold shadow transition-all">
+                    <i class="bi bi-power me-2"></i> เลิกใช้งาน (Check-out)
+                </button>
+            </form>
+        </div>
+        
     </div>
 </div>
 {% endblock %}
-{% block extra_js %}
+
+{% block extra_scripts %}
 <script>
-    window.djangoData = {
-        pcId: "{{ computer.pc_id }}",
-        userName: "{{ user_name }}",
-        startTime: "{{ start_time }}",
-        forceEndTime: "{{ force_end_time|default:'' }}",
-        monitorUrl: "{% url 'api_monitor_data' %}",
-        feedbackUrl: "{% url 'feedback' %}",
-        indexUrl: "{% url 'index' %}"
-    };
+    // ประกาศตัวแปรรับค่าจาก Django เพื่อให้ timer.js นำไปใช้งานต่อ
+    const PC_ID = "{{ computer.name|default:'' }}";
 </script>
-<script src="{% static 'cklab/js/timer.js' %}"></script>
+
+<script src="{% static 'cklab/js/timer.js' %}?v={% now 'U' %}"></script>
 {% endblock %}
