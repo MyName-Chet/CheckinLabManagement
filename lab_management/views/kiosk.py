@@ -88,7 +88,8 @@ class StatusView(View):
         data = {
             'pc_id': computer.name,
             'status': computer.status,
-            'is_open': config.is_open if config else False,
+            # ✅ แก้ไขตรงนี้: หากยังไม่ได้ตั้งค่า config ให้ถือว่าเปิด (True) ไว้ก่อน เพื่อกันหน้าจอล็อก
+            'is_open': config.is_open if config else True, 
             'next_booking_start': next_booking.start_time.isoformat() if next_booking else None
         }
         return JsonResponse(data)

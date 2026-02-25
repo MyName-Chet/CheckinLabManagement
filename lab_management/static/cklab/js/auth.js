@@ -80,8 +80,22 @@ document.addEventListener('DOMContentLoaded', () => {
 // ✅ ดึงสถานะเครื่องและสถานะแล็บจาก Backend
 async function fetchMachineAndLabStatus() {
     try {
-        const response = await fetch(`/api/status/${FIXED_PC_ID}/`);
-        if (!response.ok) return;
+        // รองรับกรณีรัน Localhost ที่ Path อาจจะเปลี่ยนไป
+        let fetchUrl = `/api/status/${FIXED_PC_ID}/`;
+        if (window.location.pathname.includes('/kiosk/')) {
+            fetchUrl = `/kiosk/api/status/${FIXED_PC_ID}/`;
+        }
+
+        const response = await fetch(fetchUrl);
+        if (!response.ok) {
+            // ถ้า API พังหรือดึงไม่ได้ ให้ปรับสถานะเป็น AVAILABLE ไว้ก่อน เพื่อไม่ให้ปุ่มล็อก (กันเหนียว)
+            const btnConfirm = document.getElementById('btnConfirm');
+            if (btnConfirm && !btnConfirm.dataset.pcStatus) {
+                btnConfirm.dataset.pcStatus = 'AVAILABLE';
+                validateForm();
+            }
+            return;
+        }
 
         const data = await response.json();
         
@@ -290,8 +304,9 @@ function validateForm() {
         isUserValid = (id !== '' && name !== '');
     }
     
-    // เช็คสถานะเครื่องจาก data-attribute ที่ถูกดึงมาจาก Backend
-    const pcStatus = btn.dataset.pcStatus || 'UNKNOWN';
+    // ✅ อัปเดต: เปลี่ยนค่าเริ่มต้นจาก 'UNKNOWN' เป็น 'AVAILABLE' 
+    // หากดึงข้อมูลสถานะไม่ทันหรือไม่สำเร็จ ปุ่มจะได้ไม่โดนล็อก
+    const pcStatus = btn.dataset.pcStatus || 'AVAILABLE'; 
     const isAccessible = (pcStatus === 'AVAILABLE' || pcStatus === 'RESERVED');
     
     if (isUserValid && isAccessible) {
