@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views import View
 from django.shortcuts import render, get_object_or_404
@@ -6,99 +7,160 @@ from django.http import JsonResponse
 from django.utils import timezone
 
 # นำเข้า Models ที่เกี่ยวข้อง
-from lab_management.models import Computer, UsageLog, SiteConfig
+from lab_management.models import Computer, UsageLog, SiteConfig, Booking
 
+
+# ==========================================
+# 1. โหลดหน้าจอ Dashboard (HTML)
+# ==========================================
 class AdminMonitorView(LoginRequiredMixin, View):
     def get(self, request):
-        # 1. ตรวจสอบว่าเป็นการขอข้อมูลแบบ JSON (สำหรับ JS ดึงไปทำ Real-time Dashboard) หรือไม่
-        is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.GET.get('format') == 'json'
-        
-        if is_ajax:
-            # ดึงข้อมูลเครื่องทั้งหมด
-            computers = Computer.objects.all().order_by('name')
-            
-            # ดึงข้อมูลคนที่กำลังใช้งานอยู่ (end_time เป็น Null) เพื่อเอาชื่อมาโชว์ที่เครื่อง
-            active_logs = UsageLog.objects.filter(end_time__isnull=True)
-            active_users_map = {log.computer: log.user_name for log in active_logs}
-
-            pc_list = []
-            for pc in computers:
-                pc_list.append({
-                    'id': pc.name,
-                    'name': pc.name,
-                    'status': pc.status,
-                    'user_name': active_users_map.get(pc.name, ''), # ดึงชื่อคนมาใส่ถ้ามี
-                    'software': pc.Software.name if pc.Software else '-',
-                    'last_updated': pc.last_updated.strftime("%H:%M:%S") if pc.last_updated else '-'
-                })
-
-            # นับจำนวนสรุป (✅ เพิ่ม reserved เข้าไป)
-            counts = {
-                'total': computers.count(),
-                'available': computers.filter(status='AVAILABLE').count(),
-                'in_use': computers.filter(status='IN_USE').count(),
-                'reserved': computers.filter(status='RESERVED').count(),  # <-- เพิ่มบรรทัดนี้
-                'maintenance': computers.filter(status='MAINTENANCE').count(),
-            }
-
-            return JsonResponse({'status': 'success', 'pcs': pc_list, 'counts': counts})
-
-        # 2. ถ้าเป็นการเข้าเว็บปกติ ให้ Render หน้า HTML
         config = SiteConfig.objects.first()
         return render(request, 'cklab/admin/admin-monitor.html', {'config': config})
 
-    def post(self, request):
-        # เผื่ออนาคต: ใช้สำหรับให้ Admin สั่งเปลี่ยนสถานะหลายๆ เครื่องพร้อมกัน (Bulk Update)
-        return JsonResponse({'status': 'error', 'message': 'Method Not Allowed'}, status=405)
+
+# ==========================================
+# 2. API สำหรับส่งข้อมูลสถานะเครื่องและคิวจอง (Real-time JSON)
+# ==========================================
+class AdminMonitorDataAPIView(LoginRequiredMixin, View):
+    def get(self, request):
+        now = timezone.now()
+        computers = Computer.objects.all().order_by('name')
+        
+        # 2.1 ดึงประวัติคนที่กำลังใช้งานอยู่ทั้งหมด (ยังไม่ได้ Check-out)
+        active_logs = UsageLog.objects.filter(end_time__isnull=True)
+        active_users_map = {log.computer: log for log in active_logs}
+
+        pc_list = []
+        for pc in computers:
+            user_name = ''
+            elapsed_time = '00:00:00'
+            next_booking_time = '-'
+            
+            # คำนวณเวลาที่ใช้งานไป (Elapsed Time) กรณีสถานะเป็น IN_USE
+            if pc.status == 'IN_USE' and pc.name in active_users_map:
+                log = active_users_map[pc.name]
+                user_name = log.user_name
+                
+                diff = now - log.start_time
+                hours, remainder = divmod(int(diff.total_seconds()), 3600)
+                minutes, seconds = divmod(remainder, 60)
+                elapsed_time = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+            # ดึงเวลาคิวจองถัดไปของเครื่องนี้ (เฉพาะที่ได้รับการอนุมัติและยังไม่ถึงเวลาสิ้นสุด)
+            next_booking = Booking.objects.filter(
+                computer=pc, 
+                status='APPROVED', 
+                end_time__gte=now
+            ).order_by('start_time').first()
+            
+            if next_booking:
+                next_booking_time = next_booking.start_time.strftime("%H:%M")
+
+            # ตรวจสอบซอฟต์แวร์
+            is_ai = False
+            software_name = '-'
+            if pc.Software:
+                software_name = pc.Software.name
+                is_ai = (pc.Software.type == 'AI')
+
+            pc_list.append({
+                'id': pc.name,
+                'name': pc.name,
+                'status': pc.status,
+                'user_name': user_name,
+                'elapsed_time': elapsed_time,
+                'next_booking_time': next_booking_time,
+                'software': software_name,
+                'is_ai': is_ai,
+                'last_updated': pc.last_updated.strftime("%H:%M:%S") if pc.last_updated else '-'
+            })
+
+        # 2.2 ดึงข้อมูลคิวจองล่วงหน้าทั้งหมด (สำหรับแสดงในตารางแท็บ "คิวจองล่วงหน้า")
+        # ดึงเฉพาะรายการที่สถานะ APPROVED และยังไม่หมดเวลา
+        future_bookings = Booking.objects.filter(
+            status='APPROVED',
+            end_time__gte=now
+        ).order_by('start_time')
+
+        booking_list = []
+        for b in future_bookings:
+            booking_list.append({
+                'date': b.start_time.strftime('%d/%m/%Y'),
+                'time': f"{b.start_time.strftime('%H:%M')} - {b.end_time.strftime('%H:%M')}",
+                'pc_name': b.computer.name if b.computer else 'ไม่ระบุ',
+                'user_id': b.student_id,
+                'status': b.status
+            })
+
+        # 2.3 นับจำนวนสถานะทั้งหมด
+        counts = {
+            'AVAILABLE': computers.filter(status='AVAILABLE').count(),
+            'IN_USE': computers.filter(status='IN_USE').count(),
+            'RESERVED': computers.filter(status='RESERVED').count(),
+            'MAINTENANCE': computers.filter(status='MAINTENANCE').count(),
+            'total': computers.count(),
+        }
+
+        return JsonResponse({
+            'status': 'success', 
+            'pcs': pc_list, 
+            'bookings': booking_list, # ข้อมูลใหม่สำหรับตารางคิวจอง
+            'counts': counts
+        })
 
 
+# ==========================================
+# 3. API สำหรับให้แอดมินบังคับ Check-in
+# ==========================================
 class AdminCheckinView(LoginRequiredMixin, View):
     def post(self, request, pc_id):
-        # แอดมินบังคับเช็คอินให้ (เช่น กรณีเด็กไม่ได้สแกนบัตร แต่เข้ามานั่ง)
         pc = get_object_or_404(Computer, name=pc_id)
         
-        # ป้องกันไม่ให้เช็คอินซ้อนเครื่องที่ใช้งานอยู่ หรือเครื่องที่แจ้งซ่อม
         if pc.status in ['IN_USE', 'MAINTENANCE']:
-            return JsonResponse({'status': 'error', 'message': f'เครื่องนี้สถานะ {pc.status} ไม่สามารถเช็คอินได้'})
+            return JsonResponse({'status': 'error', 'message': f'เครื่องนี้สถานะ {pc.status} ไม่สามารถเช็คอินได้'}, status=400)
 
         try:
             data = json.loads(request.body)
             user_id = data.get('user_id', 'AdminForce')
             user_name = data.get('user_name', 'Admin Force Check-in')
+            department = data.get('department', '')
+            user_type = data.get('user_type', 'guest')
+            user_year = data.get('user_year', '')
         except:
-            user_id = 'AdminForce'
-            user_name = 'Admin Force Check-in'
+            return JsonResponse({'status': 'error', 'message': 'รูปแบบข้อมูลไม่ถูกต้อง'}, status=400)
 
-        # 1. เปลี่ยนสถานะเครื่อง
         pc.status = 'IN_USE'
         pc.save()
 
-        # 2. บันทึกประวัติการใช้งาน
+        sw_name = pc.Software.name if pc.Software else None
+
         UsageLog.objects.create(
             user_id=user_id,
             user_name=user_name,
-            user_type='guest',
-            computer=pc.name
-            # start_time จะถูกบันทึกอัตโนมัติ (auto_now_add=True)
+            user_type=user_type,
+            department=department,
+            user_year=user_year,
+            computer=pc.name,
+            Software=sw_name
         )
 
         return JsonResponse({'status': 'success', 'message': f'เช็คอินเครื่อง {pc_id} สำเร็จ'})
 
 
+# ==========================================
+# 4. API สำหรับให้แอดมินบังคับ Check-out
+# ==========================================
 class AdminCheckoutView(LoginRequiredMixin, View):
     def post(self, request, pc_id):
-        # แอดมินบังคับคืนเครื่อง (Force Checkout)
         pc = get_object_or_404(Computer, name=pc_id)
         
-        # 1. ค้นหาประวัติการใช้งานที่ยังไม่สิ้นสุดของเครื่องนี้
-        active_log = UsageLog.objects.filter(computer=pc.name, end_time__isnull=True).first()
+        active_log = UsageLog.objects.filter(computer=pc.name, end_time__isnull=True).last()
         
         if active_log:
-            # 2. ลงเวลาสิ้นสุด
             active_log.end_time = timezone.now()
             active_log.save()
 
-        # 3. เคลียร์สถานะเครื่องให้กลับมาว่าง
         pc.status = 'AVAILABLE'
         pc.save()
 

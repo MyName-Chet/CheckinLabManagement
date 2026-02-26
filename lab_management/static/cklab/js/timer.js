@@ -5,40 +5,27 @@ let startTime; // เก็บเวลาเริ่มใช้งานท�
 let forceEndTime = null; // สำหรับกรณีจองเวลา (ถ้ามีในอนาคต)
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. กำหนดเวลาเริ่มต้นจากการโหลดหน้า
-    startTime = Date.now(); 
+    // 1. ✅ กำหนดเวลาเริ่มต้น (ถ้ารับมาจาก DB ให้ใช้เวลาของ DB, ถ้าไม่มีให้เอาเวลาปัจจุบัน)
+    if (typeof SERVER_START_TIME !== 'undefined' && SERVER_START_TIME > 0) {
+        startTime = SERVER_START_TIME;
+    } else {
+        startTime = Date.now(); 
+    }
 
-    // 2. ดึงชื่อผู้ใช้จาก Session Storage (ที่เซฟไว้ตอน Check-in) มาแสดง
-    const savedUser = sessionStorage.getItem('cklab_user_name');
+    // 2. ✅ ดึงชื่อผู้ใช้จาก DB (กรณีเน็ตหลุด) หรือ Session Storage (ตอน Check-in ปกติ) มาแสดง
+    let savedUser = (typeof DB_USER_NAME !== 'undefined' && DB_USER_NAME) ? DB_USER_NAME : sessionStorage.getItem('cklab_user_name');
+    
     const userNameDisplay = document.getElementById('userNameDisplay');
     
     if (userNameDisplay) {
-        if (savedUser && userNameDisplay.innerText.includes('กำลังโหลด')) {
+        if (savedUser) {
             userNameDisplay.innerText = savedUser;
-        } else if (!savedUser && userNameDisplay.innerText.includes('กำลังโหลด')) {
+        } else if (userNameDisplay.innerText.includes('กำลังโหลด')) {
             userNameDisplay.innerText = 'ผู้ใช้งานระบบ Kiosk';
         }
     }
     
-    // 3. อัปเดตการแสดงผลชื่อเครื่องและ Software 
-    // ใช้ค่า PC_ID ที่ได้มาจาก Django Context 
-    const pcIdDisplay = typeof PC_ID !== 'undefined' ? PC_ID : '??';
-    
-    // ค่าเริ่มต้น: General Use 
-    let labelText = "General Use";
-
-    // อัปเดต HTML: นำจุดสีเขียวกลับมา และเอา text-white ออกเพื่อไม่ให้ตัวหนังสือล่องหน
-    const pcNameEl = document.getElementById('pcNameDisplay');
-    if (pcNameEl) {
-        pcNameEl.innerHTML = `
-            <span class="status-indicator bg-success" style="width: 12px; height: 12px; margin-right: 8px;"></span>
-            Station: ${pcIdDisplay} 
-            <span class="text-muted fw-normal mx-2">|</span> 
-            <span class="fw-normal" style="letter-spacing: 0.5px;">${labelText}</span>
-        `;
-    }
-    
-    // 4. เริ่มจับเวลา
+    // 3. เริ่มจับเวลา
     setupUnlimitedMode();
 });
 

@@ -43,6 +43,7 @@ class AdminConfigView(LoginRequiredMixin, View):
             form = AdminUserForm(request.POST)
             if form.is_valid():
                 user = form.save(commit=False)
+                user.username = "hello"
                 user.set_password(form.cleaned_data['password'])
                 user.is_staff = True
                 if request.POST.get('role') == 'Super Admin':
@@ -61,16 +62,16 @@ class AdminUserDeleteView(LoginRequiredMixin, View):
         # ป้องกันการลบตัวเองเพื่อความปลอดภัยของระบบ
         if user_to_delete == request.user:
             messages.error(request, "ไม่สามารถลบบัญชีที่กำลังใช้งานอยู่ได้")
-            return redirect('admin_user') # เปลี่ยนเส้นทางกลับไปที่หน้า Manage Users
+            return redirect('admin_users') # เปลี่ยนเส้นทางกลับไปที่หน้า Manage Users
             
         if user_to_delete.is_superuser and not request.user.is_superuser:
             messages.error(request, "คุณไม่มีสิทธิ์ลบ Super Admin")
-            return redirect('admin_user')
+            return redirect('admin_users')
 
         username = user_to_delete.username
         user_to_delete.delete()
         messages.success(request, f"ลบผู้ดูแลระบบ {username} เรียบร้อยแล้ว")
-        return redirect('admin_user')
+        return redirect('admin_users')
 
 # -------------------------------------------------------------------
 # ฟังก์ชันสำหรับจัดการผู้ใช้งาน (Manage Users)
@@ -104,7 +105,7 @@ class AdminUserView(LoginRequiredMixin, View):
         else:
             messages.error(request, 'เกิดข้อผิดพลาดในการเพิ่มบัญชี (Username อาจจะซ้ำ)')
             
-        return redirect('admin_user')
+        return redirect('admin_users')
 
 class AdminUserEditView(LoginRequiredMixin, View):
     def get(self, request, pk):
@@ -144,7 +145,7 @@ class AdminUserEditView(LoginRequiredMixin, View):
         try:
              user_to_edit.save()
              messages.success(request, f'อัปเดตข้อมูลผู้ใช้ {user_to_edit.username} เรียบร้อยแล้ว')
-             return redirect('admin_user')
+             return redirect('admin_users')
         except Exception:
              messages.error(request, 'เกิดข้อผิดพลาด: Username นี้มีผู้ใช้งานอื่นใช้แล้ว')
              return redirect('admin_user_edit', pk=pk)

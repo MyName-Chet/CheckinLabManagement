@@ -34,15 +34,24 @@
             </div>
         </div>
 
-        <h4 class="mb-4">
+        <div class="mb-4 d-flex justify-content-center align-items-center gap-2 flex-wrap">
             <span class="badge px-4 py-2 shadow-sm rounded-pill" id="pcNameDisplay" style="background-color: var(--primary); font-size: 1rem; font-weight: 500;">
-                <span class="status-indicator bg-success" style="width: 8px; height: 8px; margin-right: 6px;"></span>
+                <span class="status-indicator bg-success rounded-circle d-inline-block" style="width: 8px; height: 8px; margin-right: 6px;"></span>
                 Station: {{ computer.name|default:"-" }}
             </span>
-        </h4>
+            
+            <span class="badge px-4 py-2 shadow-sm rounded-pill bg-white text-primary border border-primary" style="font-size: 1rem; font-weight: 500;">
+                {% if computer.Software and computer.Software.type == 'AI' %}
+                    <i class="bi bi-robot me-1"></i>
+                {% else %}
+                    <i class="bi bi-pc-display me-1"></i>
+                {% endif %}
+                {{ software_name|default:"General Use" }}
+            </span>
+        </div>
 
         <div class="d-grid gap-3 d-sm-flex justify-content-center mt-2">
-            <form id="checkoutForm" method="POST" action="{% url 'kiosk_checkout' computer.name %}">
+            <form id="checkoutForm" method="POST" action="{% url 'checkout' computer.name %}">
                 {% csrf_token %}
                 <button type="button" onclick="doCheckout()" class="btn btn-danger btn-lg px-5 py-3 rounded-pill fw-bold shadow transition-all">
                     <i class="bi bi-power me-2"></i> เลิกใช้งาน (Check-out)
@@ -57,7 +66,13 @@
 {% block extra_scripts %}
 <script>
     // ประกาศตัวแปรรับค่าจาก Django เพื่อให้ timer.js นำไปใช้งานต่อ
-    const PC_ID = "{{ computer.name|default:'' }}";
+    const PC_ID = "{{ computer.name|default:''|escapejs }}";
+    
+    // เวลากันหลุดจาก Database (ใส่ default:"0" เป็น String ไว้กันเหนียวให้ parseInt อ่านได้เสมอ)
+    const SERVER_START_TIME = parseInt("{{ start_time_ms|default:'0' }}"); 
+    
+    // ชื่อผู้ใช้จาก Database (เพิ่ม escapejs ป้องกันบั๊กกรณีชื่อมีเครื่องหมายคำพูด)
+    const DB_USER_NAME = "{{ user_name|default:''|escapejs }}"; 
 </script>
 
 <script src="{% static 'cklab/js/timer.js' %}?v={% now 'U' %}"></script>

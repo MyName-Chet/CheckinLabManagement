@@ -17,7 +17,8 @@
             <a href="{% url 'admin_manage_pc'%}" class="sidebar-link"><i class="bi bi-pc-display me-2"></i> Manage PC</a>
             <a href="{% url 'admin_booking' %}" class="sidebar-link"><i class="bi bi-calendar-check-fill me-2"></i> Booking</a>
             <a href="{% url 'admin_software' %}" class="sidebar-link"><i class="bi bi-robot me-2"></i> Manage AI</a>
-            <a href="{% url 'admin_config' %}" class="sidebar-link"><i class="bi bi-sliders me-2"></i> System Config</a>
+            <a href="{% url 'admin_users' %}" class="sidebar-link"><i class="bi bi-people-fill me-2"></i> Manage Users</a>
+            <a href="{% url 'admin_config' %}" class="sidebar-link active"><i class="bi bi-sliders me-2"></i> System Config</a>
             <a href="{% url 'admin_report' %}" class="sidebar-link"><i class="bi bi-file-earmark-bar-graph-fill me-2"></i> Reports</a>
             
             <div class="border-top my-3 mx-3"></div>
@@ -53,11 +54,6 @@
             <li class="nav-item" role="presentation">
                 <button class="nav-link active" id="general-tab" data-bs-toggle="tab" data-bs-target="#tab-general" type="button" role="tab">
                     <i class="bi bi-gear-fill me-2"></i>การตั้งค่าทั่วไป
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="admins-tab" data-bs-toggle="tab" data-bs-target="#tab-admins" type="button" role="tab">
-                    <i class="bi bi-person-badge-fill me-2"></i>ผู้ดูแลระบบ (Admins)
                 </button>
             </li>
         </ul>
@@ -127,110 +123,10 @@
                 </div>
             </div>
 
-            <div class="tab-pane fade" id="tab-admins" role="tabpanel">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0 fw-bold text-success">รายชื่อผู้ดูแลระบบ</h6>
-                        <button type="button" class="btn btn-success btn-sm shadow-sm" data-bs-toggle="modal" data-bs-target="#adminModal">
-                            <i class="bi bi-person-plus-fill me-1"></i> เพิ่มผู้ดูแล
-                        </button>
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0">
-                                <thead class="bg-light">
-                                    <tr>
-                                        <th class="ps-4">ชื่อ-สกุล</th>
-                                        <th>Username</th>
-                                        <th>อีเมล</th>
-                                        <th>สิทธิ์</th>
-                                        <th class="text-end pe-4">จัดการ</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for admin_user in admins %}
-                                    <tr>
-                                        <td class="ps-4 fw-bold">{{ admin_user.first_name }} {{ admin_user.last_name }}</td>
-                                        <td><span class="badge bg-secondary">{{ admin_user.username }}</span></td>
-                                        <td>{{ admin_user.email }}</td>
-                                        <td>
-                                            {% if admin_user.is_superuser %}
-                                            <span class="badge bg-danger">Super Admin</span>
-                                            {% else %}
-                                            <span class="badge bg-primary">Staff</span>
-                                            {% endif %}
-                                        </td>
-                                        <td class="text-end pe-4">
-                                            <div class="d-inline-flex gap-2">
-                                                <button class="btn btn-sm btn-outline-secondary" disabled>แก้ไข</button>
-                                                <form method="POST" action="{% url 'admin_user_delete' admin_user.pk %}" 
-                                                      onsubmit="return confirm('คุณแน่ใจหรือไม่ว่าต้องการลบผู้ดูแลคนนี้?');" class="m-0">
-                                                    {% csrf_token %}
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger">
-                                                        <i class="bi bi-trash"></i> ลบ
-                                                    </button>
-                                                </form>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    {% empty %}
-                                    <tr>
-                                        <td colspan="5" class="text-center py-4 text-muted">ไม่พบข้อมูลผู้ดูแลระบบ</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 </div>
 
-<div class="modal fade" id="adminModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow rounded-4">
-            <div class="modal-header bg-success text-white px-4 py-3 rounded-top-4">
-                <h6 class="modal-title fw-bold"><i class="bi bi-person-plus-fill me-2"></i>เพิ่มผู้ดูแลระบบ</h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-4">
-                <form method="POST" action="">
-                    {% csrf_token %}
-                    <input type="hidden" name="form_type" value="add_admin">
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold text-muted">ชื่อ-นามสกุล</label>
-                        <input type="text" name="full_name" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold text-muted">อีเมล</label>
-                        <input type="email" name="email" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold text-muted">Username</label>
-                        <input type="text" name="username" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold text-muted">Password</label>
-                        <input type="password" name="password" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold text-muted">สิทธิ์การใช้งาน</label>
-                        <select name="role" class="form-select">
-                            <option value="Staff">Staff</option>
-                            <option value="Super Admin">Super Admin</option>
-                        </select>
-                    </div>
-                    <div class="text-end mt-4">
-                        <button type="button" class="btn btn-light me-2 rounded-pill px-4" data-bs-dismiss="modal">ยกเลิก</button>
-                        <button type="submit" class="btn btn-success fw-bold rounded-pill px-4 shadow-sm">บันทึก</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block extra_scripts %}

@@ -1,0 +1,22 @@
+{% extends 'cklab/base.html' %}
+{% block title %}Booking Detail - CKLab Admin{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Booking Detail</h2>
+    <p>Student ID: {{ booking.student_id }}</p>
+    <p>Computer: {{ booking.computer }}</p>
+    <p>Status: {{ booking.status }}</p>
+    <p>Start: {{ booking.start_time }}</p>
+    <p>End: {{ booking.end_time }}</p>
+    <form method="post">
+        {% csrf_token %}
+        <select name="status">
+            <option value="PENDING">PENDING</option>
+            <option value="APPROVED">APPROVED</option>
+            <option value="REJECTED">REJECTED</option>
+        </select>
+        <button type="submit">Update</button>
+    </form>
+    <a href="{% url 'admin_booking' %}">Back</a>
+</div>
+{% endblock %}

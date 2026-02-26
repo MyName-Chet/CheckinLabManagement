@@ -230,16 +230,10 @@ function verifyUBUUser() {
             level: user.level, // เก็บระดับการศึกษา
             year: user.year    // เก็บชั้นปี
         };
-        
-        // อัปเดตข้อมูลบนการ์ด UI
         document.getElementById('showName').innerText = verifiedUserData.name;
         document.getElementById('showFaculty').innerText = verifiedUserData.faculty;
         const roleEl = document.getElementById('showRole');
         if(roleEl) roleEl.innerText = verifiedUserData.role.toUpperCase();
-        
-        // ✅ นำข้อมูลชั้นปีไปแสดงผลใน element 'showYear'
-        const yearEl = document.getElementById('showYear');
-        if (yearEl) yearEl.innerText = verifiedUserData.year || '-';
         
         verifyCard.classList.remove('d-none');
         if(errEl) errEl.classList.add('d-none'); // ซ่อน Error
@@ -389,9 +383,6 @@ function confirmCheckIn() {
         details: usageDetail,
         slotId: currentSlotId 
     });
-
-    // ✅ เก็บชื่อลง sessionStorage เผื่อหน้า timer.js ดึงไปใช้
-    sessionStorage.setItem('cklab_user_name', verifiedUserData.name);
 
     // ไปหน้าจับเวลา
     window.location.href = 'timer.html';

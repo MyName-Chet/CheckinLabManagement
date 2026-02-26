@@ -47,7 +47,7 @@ class LoginView(auth_views.LoginView):
 
 class LogoutView(auth_views.LogoutView):
     # กำหนด URL Name ที่จะให้เด้งไปหลัง Logout
-    next_page = 'login' 
+    next_page = 'admin_login'
 
     def dispatch(self, request, *args, **kwargs):
         # ดึง SiteConfig ปัจจุบัน
@@ -101,7 +101,7 @@ class AdminUserView(LoginRequiredMixin, View):
                     is_superuser=True # อนุญาตให้เข้าถึงหลังบ้านฐานข้อมูลได้
                 )
         
-        return redirect('admin_user')
+        return redirect('admin_users')
 
 
 class AdminUserEditView(LoginRequiredMixin, View):
@@ -121,7 +121,7 @@ class AdminUserEditView(LoginRequiredMixin, View):
         
         if form.is_valid():
             form.save()
-            return redirect('admin_user')
+            return redirect('admin_users')
             
         return render(request, 'cklab/admin/admin-users-edit.html', {'form': form})
 
@@ -134,4 +134,4 @@ class AdminUserDeleteView(LoginRequiredMixin, View):
         if user_obj.id != request.user.id:
             user_obj.delete()
             
-        return redirect('admin_user')
+        return redirect('admin_users')

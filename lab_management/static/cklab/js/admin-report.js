@@ -773,6 +773,9 @@ function renderLogHistory(logs) {
         return;
     }
 
+    if (typeof rowsPerPage === 'undefined') window.rowsPerPage = 10;
+    if (typeof currentPage === 'undefined') window.currentPage = 1;
+
     const totalPages = Math.ceil(totalItems / rowsPerPage);
     if (currentPage > totalPages) currentPage = 1;
     if (currentPage < 1) currentPage = 1;
@@ -781,26 +784,34 @@ function renderLogHistory(logs) {
     const endIndex = Math.min(startIndex + rowsPerPage, totalItems);
     
     const currentLogs = filteredLogsGlobal
+        // ใช้ timestamp เพราะคุณแมพไว้ใน Fetch ครึ่งแรกแล้ว
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
         .slice(startIndex, endIndex);
 
     tbody.innerHTML = currentLogs.map((log, i) => {
-        const dateObj = new Date(log.timestamp);
-        const dateStr = dateObj.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' });
-        
+        // จัดการวันที่อย่างปลอดภัย
+        let dateStr = "-";
         let timeRangeStr = "-";
-        if (log.startTime) {
-            const start = new Date(log.startTime);
-            const startStr = start.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'});
-            const endStr = dateObj.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'});
-            timeRangeStr = `${startStr} - ${endStr}`;
-        } else {
-            timeRangeStr = dateObj.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'});
+
+        if (log.timestamp) {
+            const dateObj = new Date(log.timestamp);
+            if (!isNaN(dateObj)) {
+                dateStr = dateObj.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                
+                if (log.startTime) {
+                    const start = new Date(log.startTime);
+                    const startStr = start.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'});
+                    const endStr = dateObj.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'});
+                    timeRangeStr = `${startStr} - ${endStr}`;
+                } else {
+                    timeRangeStr = dateObj.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'});
+                }
+            }
         }
         
-        // ✅ เช็ค Role แบบครอบคลุม
+        // เช็ค Role ตาม userRole ที่คุณ Map ไว้
         let roleBadge = '<span class="badge bg-secondary">Unknown</span>';
-        const userRole = (log.userRole || "").toLowerCase();
+        const userRole = String(log.userRole || "").toLowerCase();
 
         if (userRole.includes('student') || userRole.includes('นักศึกษา')) {
             roleBadge = '<span class="badge bg-primary">นักศึกษา</span>';
@@ -810,15 +821,22 @@ function renderLogHistory(logs) {
             roleBadge = '<span class="badge bg-dark">บุคคลภายนอก</span>';
         }
 
+        // Software
         let swTags = '-';
         if (log.usedSoftware && log.usedSoftware.length > 0) {
-            swTags = log.usedSoftware.map(s => `<span class="badge bg-light text-dark border me-1 mb-1">${s}</span>`).join('');
+            swTags = log.usedSoftware.map(s => {
+                if (s && s !== '-') return `<span class="badge bg-light text-dark border me-1 mb-1">${s}</span>`;
+                return '';
+            }).join('');
+            if (!swTags) swTags = '-';
         }
 
+        // คะแนน
         const score = log.satisfactionScore 
             ? `<span style="color: #ffc107;" class="fw-bold"><i class="bi bi-star-fill"></i> ${log.satisfactionScore}</span>` 
             : '<span class="text-muted">-</span>';
 
+        // คณะ
         let facultyDisplay = log.userFaculty || '-';
         if ((userRole.includes('student') || userRole.includes('นักศึกษา')) && log.userYear && log.userYear !== '-') {
             facultyDisplay += ` <small class="text-muted">(ปี ${log.userYear})</small>`;
@@ -829,12 +847,12 @@ function renderLogHistory(logs) {
                 <td class="text-center text-muted small">${startIndex + i + 1}</td>
                 <td class="fw-bold text-primary text-center">${log.userId || '-'}</td>
                 <td>${log.userName || 'Unknown'}</td>
-                <td><div class="d-flex flex-wrap">${swTags}</div></td>
+                <td><div class="d-flex flex-wrap justify-content-center">${swTags}</div></td>
                 <td class="text-center">${dateStr}</td>
                 <td class="text-center"><span class="badge bg-light text-dark border">${timeRangeStr}</span></td>
                 <td>${facultyDisplay}</td>
                 <td class="text-center">${roleBadge}</td>
-                <td class="text-center"><span class="badge bg-dark bg-opacity-75">PC-${log.pcId}</span></td>
+                <td class="text-center"><span class="badge bg-dark bg-opacity-75">${log.pcId || '-'}</span></td>
                 <td class="text-center">${score}</td>
             </tr>
         `;
@@ -891,7 +909,7 @@ function renderFeedbackComments(logs) {
     const countBadge = document.getElementById('commentCount');
     if (!container) return;
 
-    const comments = logs.filter(log => log.comment && log.comment.trim() !== "");
+    const comments = (logs || []).filter(log => log.comment && String(log.comment).trim() !== "");
     if(countBadge) countBadge.innerText = comments.length;
 
     if (comments.length === 0) {
@@ -900,25 +918,32 @@ function renderFeedbackComments(logs) {
     }
 
     const sortedComments = comments.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    
     container.innerHTML = sortedComments.map(log => {
         const score = parseInt(log.satisfactionScore) || 0;
         let stars = '';
         for(let i=1; i<=5; i++) stars += i <= score ? '<i class="bi bi-star-fill text-warning"></i>' : '<i class="bi bi-star text-muted opacity-25"></i>';
         
-        const dateObj = new Date(log.timestamp);
-        const dateStr = dateObj.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
-        const timeStr = dateObj.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-        const user = log.userName || 'Unknown';
+        let dateStr = "-"; let timeStr = "-";
+        if (log.timestamp) {
+            const dateObj = new Date(log.timestamp);
+            if (!isNaN(dateObj)) {
+                dateStr = dateObj.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+                timeStr = dateObj.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+            }
+        }
         
-        // แก้ไข: Normalize role ในส่วนคอมเมนต์ด้วย
-        const userRole = (log.userRole || "").toLowerCase();
-        let roleName = 'Guest';
-        if (userRole === 'student') roleName = 'นักศึกษา';
-        else if (userRole === 'staff' || userRole === 'admin') roleName = 'บุคลากร';
+        const user = log.userName || 'Unknown';
+        const userRole = String(log.userRole || "").toLowerCase();
+        
+        let roleName = 'บุคคลภายนอก';
+        if (userRole.includes('student') || userRole.includes('นักศึกษา')) roleName = 'นักศึกษา';
+        else if (userRole.includes('staff') || userRole.includes('admin') || userRole.includes('อาจารย์')) roleName = 'บุคลากร';
 
         let borderColor = '#dc3545'; let avatarColor = 'bg-danger';
         if (score >= 4) { borderColor = '#198754'; avatarColor = 'bg-success'; } 
         else if (score === 3) { borderColor = '#ffc107'; avatarColor = 'bg-warning text-dark'; }
+        
         const initial = user.charAt(0).toUpperCase();
 
         return `
@@ -933,7 +958,7 @@ function renderFeedbackComments(logs) {
                             </div>
                             <p class="mb-2 text-secondary" style="font-size: 0.9rem; line-height: 1.5;">"${log.comment}"</p>
                             <div class="d-flex justify-content-between align-items-center">
-                                <small class="text-muted" style="font-size: 0.75rem;"><i class="bi bi-pc-display me-1"></i>PC-${log.pcId}</small>
+                                <small class="text-muted" style="font-size: 0.75rem;"><i class="bi bi-pc-display me-1"></i>${log.pcId || '-'}</small>
                                 <small class="text-muted" style="font-size: 0.75rem;"><i class="bi bi-clock me-1"></i>${dateStr} ${timeStr}</small>
                             </div>
                         </div>
@@ -943,51 +968,12 @@ function renderFeedbackComments(logs) {
     }).join('');
 }
 
-
 // ==========================================
-// 7. EXPORT / IMPORT CSV (ระบบจริงผ่าน Django)
+// 7. EXPORT / IMPORT CSV
 // ==========================================
-
-function downloadLogTemplate() {
-    // กำหนดหัวตาราง
-    const headers = [
-        "ลำดับ", "รหัสผู้ใช้งาน", "ชื่อ-สกุล", "AI/Software ที่ใช้", "วันที่ใช้บริการ", 
-        "ช่วงเวลาใช้บริการ", "รหัสคณะ/สำนัก", "สถานะ", "PC ที่ใช้", "ระยะเวลา (นาที)", "ความพึงพอใจ (Score)", "ข้อเสนอแนะ"
-    ];
-
-    // ข้อมูลตัวอย่าง
-    const sampleRows = [
-        ["1", "66123456", "นายสมชาย ตัวอย่าง", "VS Code; ChatGPT", "17/01/2026", "09:00 - 10:30", "คณะวิทยาศาสตร์", "นักศึกษา", "PC-01", "90", "5", "ใช้งานได้ดีมาก"],
-        ["2", "guest001", "นางสมหญิง ทดสอบ", "-", "17/01/2026", "13:00 - 14:00", "บุคคลภายนอก", "บุคคลภายนอก", "PC-05", "60", "4", "-"]
-    ];
-
-    let csvContent = "\uFEFF" + headers.join(",") + "\n";
-    sampleRows.forEach(row => {
-        const safeRow = row.map(cell => cell.includes(',') ? `"${cell}"` : cell);
-        csvContent += safeRow.join(",") + "\n";
-    });
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    
-    link.setAttribute("href", url);
-    link.setAttribute("download", "CKLab_Log_Template.csv"); 
-    link.style.visibility = 'hidden';
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-
-function formatDateStr(date) { return date.toLocaleDateString('en-CA'); } 
-
-// ** ปรับให้ส่ง Request ไปที่ Django แทนการสร้าง CSV บน Browser **
 function exportReport(mode) {
-    const modeNames = { 'daily': 'รายวัน (Daily)', 'monthly': 'รายเดือน (Monthly)', 'quarterly': 'รายไตรมาส (Quarterly)', 'yearly': 'รายปี (Yearly)' };
-    const selectedModeName = modeNames[mode] || mode;
-
-    if (!confirm(`ยืนยันการดาวน์โหลดรายงาน "${selectedModeName}" หรือไม่?`)) return;
+    const modeNames = { 'daily': 'รายวัน', 'monthly': 'รายเดือน', 'quarterly': 'รายไตรมาส', 'yearly': 'รายปี' };
+    if (!confirm(`ยืนยันการดาวน์โหลดรายงาน "${modeNames[mode]}" หรือไม่?`)) return;
 
     const today = new Date();
     let startDate, endDate;
@@ -1003,44 +989,32 @@ function exportReport(mode) {
     if (startDate) startDate.setHours(0, 0, 0, 0);
     if (endDate) endDate.setHours(23, 59, 59, 999);
 
-    // ส่งวันที่ไปให้ Django (หากใน views.py คุณรองรับ parameter `start_date` และ `end_date`)
-    window.location.href = `/admin-portal/report/export/?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`;
+    let currentPath = window.location.pathname;
+    let exportPath = currentPath.replace(/\/report\/?$/, '/report/export/');
+    window.location.href = `${exportPath}?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`;
 }
 
-// ** ปรับให้ส่งไฟล์ไปให้ Django ประมวลผล **
-async function handleLogImport(input) {
-    const file = input.files[0];
-    if (!file) return;
-    
-    const formData = new FormData();
-    formData.append('csv_file', file);
-    
-    try {
-        // อัปโหลดไฟล์ไปที่ Django View (คุณเขมมิกาต้องสร้าง path นี้ใน urls.py)
-        const response = await fetch('/admin-portal/report/import/', {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken') // ดึงจากฟังก์ชันที่มีในครึ่งแรก
-            },
-            body: formData
-        });
+function downloadReportCSVTemplate() {
+    const headers = ["รหัสผู้ใช้", "ชื่อ-สกุล", "Software", "วันที่", "เวลา (เข้า-ออก)", "คณะ/หน่วยงาน", "ชั้นปี", "ประเภท", "PC", "คะแนน", "ข้อเสนอแนะ"];
+    const sampleRows = [
+        ["66123456", "นายสมชาย เรียนดี", "ChatGPT", "17/01/2026", "09:00 - 10:30", "คณะวิทยาศาสตร์", "ปี 3", "นักศึกษา", "PC-01", "5", "ใช้งานได้ดีมาก"],
+        ["staff001", "อ.สมหญิง สอนดี", "Canva", "17/01/2026", "13:00 - 15:00", "คณะวิศวกรรมศาสตร์", "-", "บุคลากร", "PC-05", "4", "คีย์บอร์ดแข็งไปนิด"],
+        ["guest999", "บุคคล ทั่วไป", "-", "18/01/2026", "10:00 - 11:00", "บุคคลภายนอก", "-", "บุคคลภายนอก", "PC-02", "5", ""]
+    ];
 
-        if (response.ok) {
-            const result = await response.json();
-            if (result.status === 'success') {
-                alert(`✅ นำเข้าข้อมูลสำเร็จ!\nบันทึก: ${result.imported_count} รายการ`);
-                location.reload(); // รีเฟรชหน้าเพื่อโหลดข้อมูลใหม่
-            } else {
-                alert(`❌ เกิดข้อผิดพลาด: ${result.message}`);
-            }
-        } else {
-            alert("❌ เซิร์ฟเวอร์ไม่สามารถประมวลผลไฟล์ได้ กรุณาตรวจสอบรูปแบบไฟล์");
-        }
+    let csvContent = "\uFEFF" + headers.join(",") + "\n";
+    sampleRows.forEach(row => {
+        const safeRow = row.map(cell => (cell && String(cell).includes(',')) ? `"${cell}"` : cell);
+        csvContent += safeRow.join(",") + "\n";
+    });
 
-    } catch (err) {
-        console.error("Import Error:", err);
-        alert("❌ ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้");
-    }
-
-    input.value = '';
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "CKLab_Log_Template.csv"); 
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }

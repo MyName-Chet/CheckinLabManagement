@@ -1,7 +1,6 @@
 /* auth.js - Kiosk Logic (Django Integrated Version with UBU API) */
 
 function getSystemPCId() {
-    // ดึงค่า pc จาก Hash (เช่น #PC-01) หรือ Query Parameter (เช่น ?pc=PC-01)
     if (window.location.hash) {
         return window.location.hash.replace('#', '').trim();
     }
@@ -9,7 +8,6 @@ function getSystemPCId() {
     return params.get('pc');
 }
 
-// ฟังก์ชันสำหรับดึง CSRF Token ของ Django จาก Cookie
 function getCookie(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {
@@ -31,42 +29,43 @@ let verifiedUserData = null;
 let activeTab = 'internal';
 let lastLabStatus = null; 
 let labClosedModal = null; 
+let isVerifying = false; // ✅ ตัวแปรป้องกันการกดปุ่มตรวจสอบรัวๆ (Double Submit)
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Setup Modal
     const modalEl = document.getElementById('labClosedModal');
     if (modalEl) labClosedModal = new bootstrap.Modal(modalEl);
 
-    // Validate PC ID (เช็คแค่ว่ามีค่าส่งมาหรือไม่)
     if (!FIXED_PC_ID) {
         renderNoPcIdError();
         return;
     }
 
-    // Monitor Status ผ่าน Django API
     fetchMachineAndLabStatus();
-    setInterval(fetchMachineAndLabStatus, 3000); // ดึงข้อมูลทุก 3 วินาที
+    setInterval(fetchMachineAndLabStatus, 3000); 
 
-    // Bind Events สำหรับฟอร์ม External
     const extInputs = document.querySelectorAll('#formExternal input');
     if(extInputs.length > 0) extInputs.forEach(input => input.addEventListener('input', validateForm));
     
-    // Smart Enter Logic สำหรับช่องรหัสนักศึกษา
     const ubuInput = document.getElementById('ubuUser');
     if(ubuInput) {
         ubuInput.addEventListener('keydown', (e) => { 
             if (e.key === 'Enter') {
-                e.preventDefault(); // ป้องกันการ reload หน้า
+                e.preventDefault(); 
                 if (!verifiedUserData) {
-                    verifyUBUUser(); // ยังไม่ผ่าน -> ตรวจสอบ
+                    verifyUBUUser(); 
                 } else {
                     const btn = document.getElementById('btnConfirm');
-                    if(btn && !btn.disabled) confirmCheckIn(); // ผ่านแล้ว -> เข้าใช้งานเลย
+                    if(btn && !btn.disabled) confirmCheckIn(); 
                 }
             } 
         });
-        // ให้เคลียร์ข้อมูลเก่าเมื่อเริ่มพิมพ์ใหม่
+        
+        // ✅ อัปเดต: ทันทีที่เริ่มพิมพ์ใหม่ ให้ซ่อนกล่อง Error และเอาขอบแดงออกทันที
         ubuInput.addEventListener('input', () => {
+            const errEl = document.getElementById('loginError');
+            if(errEl) errEl.classList.add('d-none');
+            ubuInput.classList.remove('is-invalid');
+
             if(verifiedUserData) {
                 verifiedUserData = null;
                 const verifyCard = document.getElementById('internalVerifyCard');
@@ -77,15 +76,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// ✅ ดึงสถานะเครื่องและสถานะแล็บจาก Backend
 async function fetchMachineAndLabStatus() {
     try {
-        const response = await fetch(`/api/status/${FIXED_PC_ID}/`);
-        if (!response.ok) return;
+        let fetchUrl = `/api/status/${FIXED_PC_ID}/`;
+        if (window.location.pathname.includes('/kiosk/')) {
+            fetchUrl = `/kiosk/api/status/${FIXED_PC_ID}/`;
+        }
+
+        const response = await fetch(fetchUrl);
+        if (!response.ok) {
+            const btnConfirm = document.getElementById('btnConfirm');
+            if (btnConfirm && !btnConfirm.dataset.pcStatus) {
+                btnConfirm.dataset.pcStatus = 'AVAILABLE';
+                validateForm();
+            }
+            return;
+        }
 
         const data = await response.json();
         
-        // 1. จัดการสถานะปิด/เปิด แล็บ (Lab Status)
         const currentStatus = data.is_open ? 'open' : 'closed';
         if (currentStatus === 'closed') {
             if (labClosedModal) {
@@ -100,7 +109,6 @@ async function fetchMachineAndLabStatus() {
         }
         lastLabStatus = currentStatus;
 
-        // 2. จัดการสถานะเครื่อง (Machine Status)
         const indicator = document.querySelector('.status-indicator');
         if(indicator) {
             indicator.className = 'status-indicator rounded-circle d-inline-block';
@@ -111,14 +119,13 @@ async function fetchMachineAndLabStatus() {
             if(data.status === 'AVAILABLE') indicator.classList.add('bg-success');
             else if(data.status === 'IN_USE') indicator.classList.add('bg-danger');
             else if(data.status === 'RESERVED') indicator.classList.add('bg-warning');
-            else indicator.classList.add('bg-secondary'); // MAINTENANCE
+            else indicator.classList.add('bg-secondary'); 
         }
 
-        // เก็บสถานะลง attribute ของปุ่มเพื่อให้ validateForm เอาไปเช็คต่อ
         const btnConfirm = document.getElementById('btnConfirm');
         if(btnConfirm) {
             btnConfirm.dataset.pcStatus = data.status;
-            validateForm(); // รีเฟรชปุ่มเมื่อสถานะเครื่องเปลี่ยน
+            validateForm(); 
         }
 
     } catch (error) {
@@ -143,9 +150,11 @@ function switchTab(type) {
     const btnInt = document.getElementById('tab-internal');
     const btnExt = document.getElementById('tab-external');
     
-    // Reset Internal Form
     const ubuUserEl = document.getElementById('ubuUser');
-    if(ubuUserEl) ubuUserEl.value = '';
+    if(ubuUserEl) {
+        ubuUserEl.value = '';
+        ubuUserEl.classList.remove('is-invalid');
+    }
     
     const verifyCard = document.getElementById('internalVerifyCard');
     if(verifyCard) verifyCard.classList.add('d-none');
@@ -170,22 +179,27 @@ function switchTab(type) {
     validateForm();
 }
 
-// ✅ ฟังก์ชันตรวจสอบผู้ใช้ (ยิง API ไปหา Django Backend ซึ่งจะไปคุยกับ UBU API ต่อ)
 async function verifyUBUUser() {
+    // ✅ อัปเดต: ถ้ากำลังโหลดอยู่ ห้ามทำซ้ำ
+    if (isVerifying) return; 
+
     const input = document.getElementById('ubuUser');
     if(!input) return;
     
     const id = input.value.trim();
     if(!id) { input.focus(); return; }
     
+    isVerifying = true; // ล็อกปุ่ม
+    
     const verifyCard = document.getElementById('internalVerifyCard');
     const errEl = document.getElementById('loginError');
     
-    // ปิดปุ่มตรวจสอบชั่วคราวขณะโหลด และเปลี่ยนข้อความ
+    // ซ่อน Error ก่อนเริ่มเช็คอันใหม่
+    if(errEl) errEl.classList.add('d-none');
+    input.classList.remove('is-invalid');
+
     const checkBtn = input.nextElementSibling;
-    let originalBtnText = "ตรวจสอบ";
     if (checkBtn) {
-        originalBtnText = checkBtn.innerHTML;
         checkBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
         checkBtn.disabled = true;
     }
@@ -205,23 +219,17 @@ async function verifyUBUUser() {
         if (response.ok && result.status === 'success') {
             verifiedUserData = result.data;
             
-            // ==================================================
-            // ✅ ลอจิกตรวจสอบ 'บุคลากร' ที่หน้า Front-End (กันเหนียว)
-            // ==================================================
             const nameToCheck = verifiedUserData.name || "";
             const idToCheck = String(verifiedUserData.id || "");
             
-            // เช็คว่ารหัสไม่ใช่ตัวเลขล้วน หรือ มีคำนำหน้าเป็นอาจารย์/ดร.
             const isStaffByName = nameToCheck.includes("อาจารย์") || nameToCheck.includes("ดร.") || nameToCheck.includes("ผศ.") || nameToCheck.includes("รศ.");
-            const isStaffById = !/^\d+$/.test(idToCheck); // รหัสที่ไม่ใช่ตัวเลข 0-9 ล้วน
+            const isStaffById = !/^\d+$/.test(idToCheck); 
 
             if (isStaffByName || isStaffById) {
                 verifiedUserData.role = 'staff'; 
-                // หากเป็นบุคลากร ไม่ต้องแสดงชั้นปี
                 verifiedUserData.year = '-';
             }
 
-            // แสดงผลขึ้นหน้าจอ
             const showNameEl = document.getElementById('showName');
             const showFacultyEl = document.getElementById('showFaculty');
             const showRoleEl = document.getElementById('showRole');
@@ -238,14 +246,10 @@ async function verifyUBUUser() {
                     showRoleEl.className = 'badge bg-primary bg-opacity-10 text-primary border border-primary px-3 py-2 rounded-pill mt-1';
                 }
             }
-            // ==================================================
             
             if(verifyCard) verifyCard.classList.remove('d-none');
-            if(errEl) errEl.classList.add('d-none'); // ซ่อน Error
-
             validateForm();
         } else {
-            // ไม่พบข้อมูล หรือ Error
             throw new Error(result.message || "ไม่พบข้อมูลในระบบ");
         }
 
@@ -256,20 +260,18 @@ async function verifyUBUUser() {
             errEl.innerHTML = `<i class="bi bi-exclamation-circle-fill me-1"></i> ${error.message}`;
             errEl.classList.remove('d-none');
             input.classList.add('is-invalid');
-            setTimeout(() => input.classList.remove('is-invalid'), 2000);
         } else {
             alert(`❌ ${error.message}`);
         }
         
         if(verifyCard) verifyCard.classList.add('d-none');
         verifiedUserData = null;
-        // ไม่ทำการ input.value = '' เพื่อให้ผู้ใช้สามารถแก้คำผิดได้ง่ายขึ้น
         input.focus(); 
         validateForm();
     } finally {
-        // คืนค่าปุ่มกลับเหมือนเดิม
+        isVerifying = false; // ปลดล็อก
         if (checkBtn) {
-            checkBtn.innerHTML = originalBtnText;
+            checkBtn.innerHTML = "ตรวจสอบ"; 
             checkBtn.disabled = false;
         }
     }
@@ -290,8 +292,9 @@ function validateForm() {
         isUserValid = (id !== '' && name !== '');
     }
     
-    // เช็คสถานะเครื่องจาก data-attribute ที่ถูกดึงมาจาก Backend
-    const pcStatus = btn.dataset.pcStatus || 'UNKNOWN';
+    // ✅ อัปเดต: เปลี่ยนค่าเริ่มต้นจาก 'UNKNOWN' เป็น 'AVAILABLE' 
+    // หากดึงข้อมูลสถานะไม่ทันหรือไม่สำเร็จ ปุ่มจะได้ไม่โดนล็อก
+    const pcStatus = btn.dataset.pcStatus || 'AVAILABLE'; 
     const isAccessible = (pcStatus === 'AVAILABLE' || pcStatus === 'RESERVED');
     
     if (isUserValid && isAccessible) {
@@ -326,28 +329,24 @@ function confirmCheckIn() {
             id: idEl ? idEl.value.trim() : '',
             name: nameEl ? nameEl.value.trim() : '',
             faculty: (orgEl && orgEl.value.trim() !== '') ? orgEl.value.trim() : 'บุคคลทั่วไป',
-            role: 'guest', // ตรงกับ choices ใน model
+            role: 'guest', 
             level: 'บุคคลทั่วไป',
             year: '-'
         };
     }
 
-    // เซฟชื่อลง SessionStorage เผื่อเอาไปแสดงหน้า Timer
     sessionStorage.setItem('cklab_user_name', verifiedUserData.name);
 
-    // สร้าง Form แบบไดนามิก เพื่อ POST ข้อมูลไปยัง CheckinView ของ Django
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = `/checkin/${FIXED_PC_ID}/`; // URL ตามโครงสร้าง Django
+    form.action = `/checkin/${FIXED_PC_ID}/`; 
 
-    // เพิ่ม CSRF Token
     const csrfInput = document.createElement('input');
     csrfInput.type = 'hidden';
     csrfInput.name = 'csrfmiddlewaretoken';
     csrfInput.value = getCookie('csrftoken');
     form.appendChild(csrfInput);
 
-    // เพิ่มข้อมูลผู้ใช้
     const dataToSubmit = {
         'user_id': verifiedUserData.id,
         'user_name': verifiedUserData.name,
@@ -364,7 +363,6 @@ function confirmCheckIn() {
         form.appendChild(input);
     }
 
-    // นำ Form ใส่ใน Body แล้ว Submit
     document.body.appendChild(form);
     form.submit();
 }

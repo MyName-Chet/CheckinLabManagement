@@ -1,14 +1,17 @@
 # เขมมิกา — Report + Export CSV
 
 import csv
+import io
 import codecs
 from datetime import datetime
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views import View
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.http import HttpResponse, JsonResponse
 from django.utils.dateparse import parse_datetime
 from django.db.models import Q
+from django.utils import timezone
+from django.contrib import messages
 
 # Models ที่ต้องใช้
 from lab_management.models import UsageLog
@@ -40,35 +43,105 @@ class AdminReportView(LoginRequiredMixin, View):
     def post(self, request):
         # 2. ระบบ Import CSV (รับไฟล์มาจากหน้า Report)
         csv_file = request.FILES.get('csv_file')
-        if not csv_file:
-            return JsonResponse({'status': 'error', 'message': 'ไม่พบไฟล์ CSV'})
+        
+        # เช็คว่ามีไฟล์ไหม และเป็น .csv หรือไม่
+        if not csv_file or not csv_file.name.endswith('.csv'):
+            messages.error(request, '❌ กรุณาอัปโหลดไฟล์นามสกุล .csv เท่านั้น')
+            return redirect('admin_report')
 
         try:
             # อ่านไฟล์ CSV (ใช้ utf-8-sig เพื่อรองรับภาษาไทยจาก Excel)
-            reader = csv.reader(codecs.iterdecode(csv_file, 'utf-8-sig'))
-            next(reader, None) # ข้ามบรรทัด Header
+            decoded_file = csv_file.read().decode('utf-8-sig')
+            io_string = io.StringIO(decoded_file)
+            reader = csv.DictReader(io_string)
 
             imported_count = 0
             for row in reader:
-                # ตรวจสอบว่าคอลัมน์ครบหรือไม่ (ตาม Template ที่เราออกแบบไว้)
-                if len(row) < 11:
+                # ---------------------------------------------
+                # 1. อ่านข้อมูลจากหัวคอลัมน์ "ภาษาไทย" ให้ตรงกับแบบฟอร์ม
+                # ---------------------------------------------
+                user_id = row.get('รหัสผู้ใช้', '').strip()
+                user_name = row.get('ชื่อ-สกุล', '').strip()
+                software = row.get('Software', '').strip()
+                date_str = row.get('วันที่', '').strip()
+                time_str = row.get('เวลา (เข้า-ออก)', '').strip()
+                department = row.get('คณะ/หน่วยงาน', '').strip()
+                user_year = row.get('ชั้นปี', '').strip()
+                raw_type = row.get('ประเภท', '').strip()
+                computer = row.get('PC', '').strip()
+                score_str = row.get('คะแนน', '').strip()
+                comment = row.get('ข้อเสนอแนะ', '').strip()
+
+                # ถ้าแถวไหนว่างเปล่าจริงๆ ให้ข้ามไป
+                if not user_id and not user_name:
                     continue
+
+                # ---------------------------------------------
+                # 2. แปลงประเภทผู้ใช้งาน
+                # ---------------------------------------------
+                if 'นักศึกษา' in raw_type: user_type = 'student'
+                elif 'บุคลากร' in raw_type or 'อาจารย์' in raw_type: user_type = 'staff'
+                else: user_type = 'guest'
+
+                # ---------------------------------------------
+                # 3. แปลงคะแนน
+                # ---------------------------------------------
+                score = int(score_str) if score_str.isdigit() else None
+
+                # ---------------------------------------------
+                # 4. แปลง วันที่ และ เวลา 
+                # (เช่น "17/01/2026" และ "09:00 - 10:30")
+                # ---------------------------------------------
+                start_dt = None
+                end_dt = None
+                if date_str and time_str:
+                    try:
+                        times = [t.strip() for t in time_str.split('-')]
+                        start_t = times[0] if len(times) > 0 else '00:00'
+                        end_t = times[1] if len(times) > 1 else start_t
+                        
+                        # รองรับวันที่ทั้งแบบ DD/MM/YYYY และ YYYY-MM-DD
+                        if '/' in date_str:
+                            d_obj = datetime.strptime(date_str, '%d/%m/%Y')
+                        else:
+                            d_obj = datetime.strptime(date_str, '%Y-%m-%d')
+                            
+                        date_fmt = d_obj.strftime('%Y-%m-%d')
+                        start_dt = timezone.make_aware(datetime.strptime(f"{date_fmt} {start_t}", '%Y-%m-%d %H:%M'))
+                        end_dt = timezone.make_aware(datetime.strptime(f"{date_fmt} {end_t}", '%Y-%m-%d %H:%M'))
+                    except Exception:
+                        pass # ถ้ากรอกวันที่ผิดรูปแบบ ให้ข้ามไปใช้ค่า Auto
+
+                # ---------------------------------------------
+                # 5. บันทึกลงฐานข้อมูล
+                # ---------------------------------------------
+                # หมายเหตุ: start_time เป็น auto_now_add หากเราระบุค่าตอน .create() ทับลงไป บางครั้ง Django อาจจะเพิกเฉย
+                # เลยต้องใช้วิธีสร้าง object ก่อนแล้วค่อยอัปเดต ถ้าอยากบันทึกข้อมูลย้อนหลังให้แม่นยำ
+                log = UsageLog.objects.create(
+                    user_id=user_id,
+                    user_name=user_name,
+                    user_type=user_type,
+                    department=department,
+                    user_year=user_year,
+                    computer=computer,
+                    Software=software,
+                    end_time=end_dt,
+                    satisfaction_score=score,
+                    comment=comment
+                )
                 
-                # หมายเหตุ: ในระบบจริง การเขียนโค้ดแปลง Date/Time จาก string ของ CSV กลับมาเป็น Datetime Object
-                # จะต้องเขียนดัก Try/Except ตรงนี้เพิ่มเติม แต่เพื่อให้ระบบบันทึกได้คร่าวๆ จะร่างโครงสร้างไว้ให้ดังนี้
-                
-                # ตัวอย่างการบันทึก (สามารถปรับแก้ให้ตรงกับ format วันที่ของ CSV ได้)
-                # UsageLog.objects.create(
-                #     user_id=row[1],
-                #     user_name=row[2],
-                #     ...
-                # )
+                # เขียนทับ start_time อีกรอบเพื่อหลีกเลี่ยง auto_now_add
+                if start_dt:
+                    log.start_time = start_dt
+                    log.save()
+                    
                 imported_count += 1
 
-            return JsonResponse({'status': 'success', 'imported_count': imported_count})
-        
+            messages.success(request, f'✅ นำเข้าข้อมูลสำเร็จ {imported_count} รายการ')
         except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)})
+            messages.error(request, f'❌ เกิดข้อผิดพลาดในการนำเข้าไฟล์: {str(e)}')
+
+        return redirect('admin_report')
 
 
 # ==============================================================

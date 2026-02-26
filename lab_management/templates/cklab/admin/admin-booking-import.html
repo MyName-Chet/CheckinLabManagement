@@ -1,4 +1,154 @@
-{% extends "cklab/base.html" %}
-{% block title %}Import Booking{% endblock %}
+{% extends 'cklab/base.html' %}
+{% load static %}
+
+{% block title %}Import Booking - CKLab Admin{% endblock %}
+
+{% block extra_head %}
+<link href="{% static 'cklab/css/admin.css' %}?v={% now 'U' %}" rel="stylesheet">
+<style>
+    body { 
+        overflow: hidden; 
+        background-color: var(--gray-light);
+        font-family: 'Prompt', sans-serif;
+    }
+    .upload-area {
+        border: 2px dashed #dee2e6;
+        border-radius: 12px;
+        padding: 40px;
+        text-align: center;
+        background-color: #f8f9fa;
+        transition: all 0.3s ease;
+    }
+    .upload-area:hover {
+        border-color: #198754;
+        background-color: #e8f5e9;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
+<div class="d-flex" style="height: 100vh; width: 100vw; position: absolute; top:0; left:0;">
+    
+    <div id="sidebar-container" class="shadow-sm">
+        <a href="{% url 'admin_monitor' %}" class="sidebar-brand">
+            <i class="bi bi-shield-lock me-2"></i>Admin Panel
+        </a>
+        <nav class="mt-3">
+            <a href="{% url 'admin_monitor' %}" class="sidebar-link"><i class="bi bi-grid-fill me-2"></i> Monitor</a>
+            <a href="{% url 'admin_manage_pc' %}" class="sidebar-link"><i class="bi bi-pc-display me-2"></i> Manage PC</a>
+            <a href="{% url 'admin_booking' %}" class="sidebar-link active"><i class="bi bi-calendar-check-fill me-2"></i> Booking</a>
+            <a href="{% url 'admin_software' %}" class="sidebar-link"><i class="bi bi-robot me-2"></i> Manage AI</a>
+            <a href="{% url 'admin_users' %}" class="sidebar-link"><i class="bi bi-people-fill me-2"></i> Manage Users</a>
+            <a href="{% url 'admin_config' %}" class="sidebar-link"><i class="bi bi-sliders me-2"></i> System Config</a>
+            <a href="{% url 'admin_report' %}" class="sidebar-link"><i class="bi bi-file-earmark-bar-graph-fill me-2"></i> Reports</a>
+            
+            <div class="border-top my-3 mx-2"></div>
+            
+            <form method="POST" action="{% url 'admin_logout' %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-link sidebar-link text-danger w-100 text-start text-decoration-none" onclick="return confirm('ยืนยันออกจากระบบ?');">
+                    <i class="bi bi-box-arrow-right me-2"></i> Logout
+                </button>
+            </form>
+        </nav>
+    </div>
+
+    <div class="flex-grow-1 p-4" style="height: 100vh; overflow-y: auto;">
+        
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show shadow-sm" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <a href="{% url 'admin_booking' %}" class="text-decoration-none text-muted mb-2 d-inline-block">
+                    <i class="bi bi-arrow-left me-1"></i> กลับไปหน้าจัดการการจอง
+                </a>
+                <h3 class="fw-bold text-success mb-1">📥 Import Booking Data</h3>
+                <p class="text-muted small mb-0">นำเข้าข้อมูลการจองล่วงหน้าด้วยไฟล์ CSV</p>
+            </div>
+            
+            <div>
+                <button onclick="downloadBookingCSVTemplate()" class="btn btn-outline-secondary shadow-sm">
+                    <i class="bi bi-download me-1"></i> ดาวน์โหลดไฟล์ตัวอย่าง (Template)
+                </button>
+            </div>
+        </div>
+
+        <div class="row justify-content-center mt-5">
+            <div class="col-md-8 col-lg-6">
+                <div class="card border-0 shadow-sm rounded-4">
+                    <div class="card-body p-5">
+                        
+                        <form method="POST" action="{% url 'admin_booking_import' %}" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            
+                            <div class="upload-area mb-4">
+                                <i class="bi bi-filetype-csv display-1 text-success mb-3"></i>
+                                <h5>อัปโหลดไฟล์ CSV ที่นี่</h5>
+                                <p class="text-muted small mb-4">รองรับไฟล์นามสกุล .csv เท่านั้น</p>
+                                
+                                <input class="form-control" type="file" id="csvFile" name="csv_file" accept=".csv" required>
+                            </div>
+
+                            <div class="alert alert-info border-0 bg-opacity-10 small">
+                                <strong><i class="bi bi-info-circle me-1"></i> คำแนะนำ:</strong><br>
+                                คอลัมน์บรรทัดแรกในไฟล์ CSV ต้องเป็นภาษาไทยตามนี้เป๊ะๆ: <br>
+                                <code>วันที่</code>, <code>เวลา</code>, <code>ผู้จอง</code>, <code>เครื่อง</code>, <code>Software / AI ที่จอง</code>
+                            </div>
+
+                            <div class="d-grid mt-4">
+                                <button type="submit" class="btn btn-success py-3 fw-bold fs-5 shadow-sm rounded-3" onclick="return confirm('ยืนยันการนำเข้าข้อมูล?');">
+                                    <i class="bi bi-cloud-upload-fill me-2"></i> เริ่มนำเข้าข้อมูล
+                                </button>
+                            </div>
+                        </form>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // ฟังก์ชันสร้างและดาวน์โหลดไฟล์ Template 
+    function downloadBookingCSVTemplate() {
+        const headers = ["วันที่", "เวลา", "ผู้จอง", "เครื่อง", "Software / AI ที่จอง"];
+        const sampleRows = [
+            ["17/01/2026", "09:00 - 10:30", "66123456", "PC-01", "ChatGPT"],
+            ["18/01/2026", "13:30 - 15:00", "somchai.r", "PC-05", "Canva"]
+        ];
+
+        let csvContent = "\uFEFF" + headers.join(",") + "\n";
+        
+        sampleRows.forEach(row => {
+            const safeRow = row.map(cell => {
+                if (cell && String(cell).includes(',')) return `"${cell}"`;
+                return cell;
+            });
+            csvContent += safeRow.join(",") + "\n";
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        
+        link.setAttribute("href", url);
+        link.setAttribute("download", "Booking_Import_Template.csv");
+        link.style.visibility = 'hidden';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
 {% endblock %}
