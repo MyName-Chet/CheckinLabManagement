@@ -1,0 +1,47 @@
+@startuml fig3_6
+!theme plain
+skinparam defaultFontName "Sarabun"
+
+salt
+{
+  { [Monitor] | [Booking] | [Manage PC] | [Software] | [Report] | [Config] | <b>Admin: สมศักดิ์</b> }
+  ==
+  <b>Monitor Dashboard</b>   อัปเดตล่าสุด: 14:32:05
+  ==
+  {
+    { <color:green>ว่าง: 12</color> } |
+    { <color:red>ใช้งาน: 5</color> } |
+    { <color:orange>จอง: 2</color> } |
+    { <color:gray>แจ้งซ่อม: 1</color> }
+  }
+  ==
+  {/ <b>สถานะ Real-time</b> | รายการจอง }
+  ==
+  {
+    {
+      <color:red>[ PC-01 ]</color>
+      นายสมชาย ใจดี
+      00:42:17
+      [Force Logout]
+    } |
+    {
+      <color:green>[ PC-02 ]</color>
+      ว่าง
+      .
+      [Check-in]
+    } |
+    {
+      <color:orange>[ PC-03 ]</color>
+      จอง 15:00-17:00
+      .
+      .
+    } |
+    {
+      <color:gray>[ PC-04 ]</color>
+      แจ้งซ่อม
+      .
+      .
+    }
+  }
+}
+@enduml

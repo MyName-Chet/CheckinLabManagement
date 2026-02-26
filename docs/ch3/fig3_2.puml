@@ -1,0 +1,94 @@
+@startuml fig3_2
+!theme plain
+skinparam defaultFontName "Sarabun"
+skinparam defaultFontSize 11
+skinparam linetype ortho
+
+skinparam class {
+  BackgroundColor #EAF3FF
+  BorderColor #2C7BE5
+  HeaderBackgroundColor #2C7BE5
+  HeaderFontColor white
+  FontSize 11
+}
+
+' ─── Entities ───
+
+class SiteConfig {
+  + id : Integer <<PK>>
+  --
+  + lab_name : CharField(100)
+  + location : CharField(200)
+  + is_open : BooleanField
+  + booking_enabled : BooleanField
+  + announcement : TextField
+  + admin_on_duty : FK(AdminonDuty) <<nullable>>
+}
+
+class AdminonDuty {
+  + id : Integer <<PK>>
+  --
+  + admin_on_duty : CharField(100)
+  + contact_email : EmailField
+  + contact_phone : CharField(20)
+}
+
+class Computer {
+  + id : Integer <<PK>>
+  --
+  + name : CharField(20) <<unique>>
+  + status : CharField [AVAILABLE|IN_USE\n|RESERVED|MAINTENANCE]
+  + description : TextField <<nullable>>
+  + last_updated : DateTimeField <<auto>>
+  + Software : FK(Software) <<nullable>>
+}
+
+class Software {
+  + id : Integer <<PK>>
+  --
+  + name : CharField(100)
+  + version : CharField(100)
+  + type : CharField [Software|AI Tool]
+  + expire_date : DateField <<nullable>>
+}
+
+class Booking {
+  + id : Integer <<PK>>
+  --
+  + student_id : CharField(20)
+  + start_time : DateTimeField
+  + end_time : DateTimeField
+  + booking_date : DateTimeField <<auto>>
+  + status : CharField [PENDING|APPROVED\n|REJECTED]
+  + created_at : DateTimeField <<auto>>
+  + computer : FK(Computer)
+}
+
+class UsageLog {
+  + id : Integer <<PK>>
+  --
+  + user_id : CharField(50)
+  + user_name : CharField(100)
+  + user_type : CharField [student|staff|guest]
+  + department : CharField(100)
+  + user_year : CharField(10)
+  + computer : CharField(20)
+  + Software : CharField(100)
+  + start_time : DateTimeField <<auto>>
+  + end_time : DateTimeField <<nullable>>
+  + satisfaction_score : IntegerField(1-5) <<nullable>>
+  + comment : CharField(500) <<nullable>>
+}
+
+' ─── Relationships ───
+SiteConfig "1" o-- "0..1" AdminonDuty : admin_on_duty (FK)
+Computer "many" o-- "0..1" Software : Software (FK)
+Booking "many" --> "1" Computer : computer (FK)
+
+note bottom of UsageLog
+  computer และ Software ใน UsageLog
+  เป็น CharField (snapshot ณ เวลา Check-in)
+  ไม่ใช่ FK เพื่อรักษาประวัติหากลบ PC/Software
+end note
+
+@enduml

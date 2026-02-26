@@ -1,0 +1,46 @@
+@startuml fig3_13
+!theme plain
+skinparam defaultFontName "Sarabun"
+skinparam defaultFontSize 12
+skinparam ActivityBackgroundColor #EAF3FF
+skinparam ActivityBorderColor #2C7BE5
+skinparam ActivityDiamondBackgroundColor #FFF3CD
+skinparam ActivityDiamondBorderColor #F59E0B
+skinparam ArrowColor #444444
+
+title กระบวนการ Check-out และการเก็บ Feedback
+
+|ผู้ใช้งาน (Kiosk)|
+start
+:กดปุ่ม "เช็คเอาท์" บนหน้า Timer;
+
+|ระบบ (Django)|
+:ค้นหา UsageLog ที่ active\n(end_time = null) ของเครื่องนั้น;
+
+if (พบ UsageLog ที่ active?) then (ใช่)
+  :บันทึก end_time = เวลาปัจจุบัน;
+  :อัปเดต Computer.status = AVAILABLE;
+  :Redirect ไปหน้า Feedback;
+  |ผู้ใช้งาน (Kiosk)|
+  :กรอกคะแนนความพึงพอใจ (1-5 ดาว)\n[บังคับ];
+  :กรอกข้อเสนอแนะ (ไม่บังคับ);
+  :กดปุ่ม "ส่งแบบประเมิน";
+  |ระบบ (Django)|
+  if (กรอก satisfaction_score แล้ว?) then (ใช่)
+    :บันทึก satisfaction_score\nและ comment ลงใน UsageLog;
+    :Redirect ไปหน้าหลัก Kiosk;
+    |ผู้ใช้งาน (Kiosk)|
+    :เห็นหน้าหลัก พร้อมข้อความขอบคุณ;
+    stop
+  else (ไม่)
+    :แสดง Error "กรุณาให้คะแนนความพึงพอใจ";
+    |ผู้ใช้งาน (Kiosk)|
+    :กรอกคะแนนใหม่;
+  endif
+else (ไม่)
+  :แก้ไขสถานะ Computer = AVAILABLE\n(Ghost State Handling);
+  :Redirect ไปหน้าหลัก Kiosk;
+  stop
+endif
+
+@enduml

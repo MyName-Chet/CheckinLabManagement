@@ -1,0 +1,52 @@
+@startuml fig3_14
+!theme plain
+skinparam defaultFontName "Sarabun"
+skinparam defaultFontSize 12
+skinparam ActivityBackgroundColor #EAF3FF
+skinparam ActivityBorderColor #2C7BE5
+skinparam ActivityDiamondBackgroundColor #FFF3CD
+skinparam ActivityDiamondBorderColor #F59E0B
+skinparam ArrowColor #444444
+
+title กระบวนการจองเครื่องคอมพิวเตอร์ล่วงหน้า (Booking)
+
+|Admin (Portal)|
+start
+:กรอกข้อมูลการจอง\n(รหัสผู้ใช้, เครื่อง, วันที่, เวลาเริ่ม-สิ้นสุด);
+:กดปุ่ม "เพิ่มการจอง";
+
+|ระบบ (Django)|
+:ตรวจสอบความถูกต้องของข้อมูล;
+
+if (ข้อมูลถูกต้อง?\nstart_time < end_time\nไม่ย้อนหลัง) then (ใช่)
+  :สร้าง Booking ด้วยสถานะ PENDING;
+  |Admin (Portal)|
+  :เห็นรายการ Booking สถานะ PENDING;
+  :กดปุ่ม "อนุมัติ" หรือ "ปฏิเสธ";
+  |ระบบ (Django)|
+  if (Admin กดอนุมัติ?) then (อนุมัติ)
+    :อัปเดต Booking.status = APPROVED;
+    note right
+      Monitor Dashboard จะแสดง
+      "จองถัดไป" บนการ์ด PC
+    end note
+  else (ปฏิเสธ)
+    :อัปเดต Booking.status = REJECTED;
+  endif
+  |Admin (Portal)|
+  :เห็นสถานะ Booking อัปเดตแล้ว;
+  stop
+else (ไม่)
+  :แสดงข้อความ Error ภาษาไทย;
+  |Admin (Portal)|
+  :แก้ไขข้อมูลและส่งใหม่;
+endif
+
+note bottom of ระบบ (Django)
+  กรณี Import CSV:
+  - อ่านไฟล์ CSV (header: วันที่, เวลา, ผู้จอง, เครื่อง)
+  - สร้าง Booking ทุกแถวด้วยสถานะ APPROVED ทันที
+  - รองรับรูปแบบวันที่ DD/MM/YYYY และ YYYY-MM-DD
+end note
+
+@enduml

@@ -1,0 +1,28 @@
+@startuml fig3_9
+!theme plain
+skinparam defaultFontName "Sarabun"
+
+salt
+{
+  { [Monitor] | [Booking] | [Manage PC] | <b>[Software]</b> | [Report] | [Config] }
+  ==
+  <b>จัดการซอฟต์แวร์และเครื่องมือ AI</b>
+  ==
+  { <color:blue>Software ทั้งหมด: 8</color> | <color:purple>AI Tool: 3</color> | Software ทั่วไป: 5 }
+  ==
+  เพิ่มซอฟต์แวร์ใหม่
+  ชื่อ:       "[Python / Anaconda    ]"
+  เวอร์ชัน:  "[3.11.5               ]"
+  ประเภท:    (X) Software  () AI Tool
+  วันหมดอายุ: "[          ]" (ถ้ามี)
+  [ บันทึก ]
+  ==
+  {
+    ชื่อ | เวอร์ชัน | ประเภท | หมดอายุ | จัดการ
+    Python/Jupyter | 3.11 | Software | - | [แก้ไข][ลบ]
+    ChatGPT Plus | 2024 | AI Tool | 2025-12-31 | [แก้ไข][ลบ]
+    Claude Pro | 2024 | AI Tool | 2025-06-30 | [แก้ไข][ลบ]
+    MATLAB | R2024a | Software | 2025-08-01 | [แก้ไข][ลบ]
+  }
+}
+@enduml

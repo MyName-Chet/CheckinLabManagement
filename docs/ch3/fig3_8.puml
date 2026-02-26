@@ -1,0 +1,26 @@
+@startuml fig3_8
+!theme plain
+skinparam defaultFontName "Sarabun"
+
+salt
+{
+  { [Monitor] | [Booking] | <b>[Manage PC]</b> | [Software] | [Report] | [Config] }
+  ==
+  <b>จัดการเครื่องคอมพิวเตอร์</b>
+  [+ เพิ่มเครื่องใหม่]
+  ==
+  เพิ่ม / แก้ไขเครื่อง
+  ชื่อเครื่อง: "[PC-01         ]"
+  สถานะ:      ^AVAILABLE      ^
+  Software:   ^Python/Jupyter ^
+  [ บันทึก ] [ ยกเลิก ]
+  ==
+  {
+    ชื่อเครื่อง | สถานะ | Software | จัดการ
+    PC-01 | <color:green>AVAILABLE</color> | Python/Jupyter | [แก้ไข][ลบ]
+    PC-02 | <color:red>IN_USE</color> | General | [แก้ไข][ลบ]
+    PC-03 | <color:orange>RESERVED</color> | ChatGPT Plus | [แก้ไข][ลบ]
+    PC-04 | <color:gray>MAINTENANCE</color> | - | [แก้ไข][ลบ]
+  }
+}
+@enduml

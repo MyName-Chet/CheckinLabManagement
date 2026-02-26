@@ -1,0 +1,22 @@
+@startuml fig3_3
+!theme plain
+skinparam defaultFontName "Sarabun"
+
+salt
+{
+  {/ <b>UBU WiFi (ภายใน)</b> | Guest Login }
+  ==
+  {
+    <b>CKLab Computer Center</b>
+    ห้องปฏิบัติการคอมพิวเตอร์ อาคาร 4 ชั้น 2
+  }
+  ==
+  " กรุณากรอกรหัส UBU WiFi ของท่าน "
+  " [________________________] "
+  ==
+  [  เช็คอิน (UBU WiFi)  ]
+  ==
+  . . . . . . . . . . . . . . . .
+  { ℹ ติดต่อผู้ดูแล: 045-353-xxx }
+}
+@enduml

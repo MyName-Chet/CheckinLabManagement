@@ -1,0 +1,24 @@
+@startuml fig3_4
+!theme plain
+skinparam defaultFontName "Sarabun"
+
+salt
+{
+  { <b>CKLab</b> | . | <b>PC-01</b> }
+  ==
+  {
+    ยินดีต้อนรับ
+    <b>นายสมชาย ใจดี</b>
+    คณะวิทยาศาสตร์ | นักศึกษา ปี 3
+  }
+  ==
+  Software: Python / Jupyter Notebook
+  ==
+  <b>เวลาที่ใช้งาน</b>
+  " 00 : 42 : 17 "
+  ==
+  {
+    [ เช็คเอาท์ ]
+  }
+}
+@enduml
