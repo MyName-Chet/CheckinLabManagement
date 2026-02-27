@@ -126,9 +126,9 @@ class AdminBookingDataAPIView(LoginRequiredMixin, View):
                     'user_id': b.student_id, # ตามชื่อฟิลด์ใน Model
                     'user_name': b.student_id, # เนื่องจาก Model Booking ไม่มี user_name จึงใช้รหัสแทน
                     'pc_name': b.computer.name if b.computer else '-',
-                    'date': b.start_time.strftime('%Y-%m-%d') if b.start_time else '',
-                    'start_time': b.start_time.strftime('%H:%M') if b.start_time else '',
-                    'end_time': b.end_time.strftime('%H:%M') if b.end_time else '',
+                    'date': timezone.localtime(b.start_time).strftime('%Y-%m-%d') if b.start_time else '',
+                    'start_time': timezone.localtime(b.start_time).strftime('%H:%M') if b.start_time else '',
+                    'end_time': timezone.localtime(b.end_time).strftime('%H:%M') if b.end_time else '',
                     'status': b.status,
                     'software': b.computer.Software.name if b.computer and b.computer.Software else '-'
                 })

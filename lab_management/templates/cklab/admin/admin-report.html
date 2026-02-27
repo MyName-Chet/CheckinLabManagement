@@ -9,10 +9,23 @@
 <link href="{% static 'cklab/css/admin.css' %}?v={% now 'U' %}" rel="stylesheet">
 <style>
     /* บังคับไม่ให้เกิด Scroll ซ้อน และจัดการพื้นหลัง */
-    body { 
-        overflow: hidden; 
+    body {
+        overflow: hidden;
         background-color: var(--gray-light);
         font-family: 'Prompt', sans-serif;
+    }
+
+    /* ทำให้ทุก element ใน time filter row มีความสูง font เท่ากัน */
+    #timeFilterType,
+    .time-input-group .form-control,
+    .time-input-group .form-select,
+    .time-input-group .input-group-text,
+    #timeFilterRow .btn {
+        height: 42px;
+        font-family: 'Prompt', sans-serif;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        box-sizing: border-box;
     }
 </style>
 {% endblock %}
@@ -256,7 +269,7 @@
                     </div>
                 </div>
 
-                <div class="row g-3 align-items-end mt-2">
+                <div id="timeFilterRow" class="row g-3 align-items-end mt-2">
                     <div class="col-md-3">
                         <label class="form-label small fw-bold">รูปแบบเวลา</label>
                         <select id="timeFilterType" class="form-select bg-white text-primary fw-bold" onchange="toggleTimeInputs()">
@@ -284,8 +297,18 @@
                         </div>
                     </div>
 
+                    <div class="col-md-6 time-input-group d-none" id="input-yearly">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white">ปี</span>
+                            <select id="yearStart" class="form-select"></select>
+                            <span class="input-group-text bg-white">ถึง</span>
+                            <select id="yearEnd" class="form-select"></select>
+                        </div>
+                    </div>
+
                     <div class="col-md-3 ms-auto">
-                        <button onclick="generateReport()" class="btn btn-primary w-100 fw-bold shadow-sm py-2">
+                        <label class="form-label small fw-bold invisible">ค้นหา</label>
+                        <button onclick="generateReport()" class="btn btn-primary w-100 fw-bold shadow-sm" style="height: 42px; font-family: 'Prompt', sans-serif; font-size: 0.875rem;">
                             <i class="bi bi-search me-2"></i> ประมวลผล
                         </button>
                     </div>

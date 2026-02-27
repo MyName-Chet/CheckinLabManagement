@@ -2,6 +2,7 @@ import json
 import base64
 import requests
 import urllib3
+from datetime import timedelta
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.views import View
@@ -89,8 +90,9 @@ class StatusView(View):
             'pc_id': computer.name,
             'status': computer.status,
             # หากยังไม่ได้ตั้งค่า config ให้ถือว่าเปิด (True) ไว้ก่อน เพื่อกันหน้าจอล็อก
-            'is_open': config.is_open if config else True, 
-            'next_booking_start': next_booking.start_time.isoformat() if next_booking else None
+            'is_open': config.is_open if config else True,
+            'next_booking_start': next_booking.start_time.isoformat() if next_booking else None,
+            'next_booking_student_id': next_booking.student_id if next_booking else None,
         }
         return JsonResponse(data)
 
@@ -179,9 +181,21 @@ class CheckinView(View):
     def post(self, request, pc_id):
         computer = get_object_or_404(Computer, name=pc_id)
         config = SiteConfig.objects.first()
-        
+
         if (config and not config.is_open) or computer.status not in ['AVAILABLE', 'RESERVED']:
             return redirect(f"{reverse('index')}?pc={pc_id}&error=unavailable")
+
+        # ถ้าเครื่องสถานะ RESERVED ต้องตรวจสอบว่า user_id ตรงกับคนที่จองไว้เท่านั้น
+        if computer.status == 'RESERVED':
+            incoming_user_id = request.POST.get('user_id', '').strip()
+            active_booking = Booking.objects.filter(
+                computer=computer,
+                status='APPROVED',
+                start_time__lte=timezone.now() + timedelta(minutes=15),
+                end_time__gte=timezone.now(),
+            ).order_by('start_time').first()
+            if not active_booking or incoming_user_id != active_booking.student_id:
+                return redirect(f"{reverse('index')}?pc={pc_id}&error=reserved")
 
         # เรียกใช้ CheckinForm เพื่อกรองและตรวจสอบข้อมูลที่รับมา
         form = CheckinForm(request.POST)

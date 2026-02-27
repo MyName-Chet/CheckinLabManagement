@@ -31,6 +31,15 @@
     .soft-card.active .text-muted {
         color: #0d6efd !important;
     }
+    .soft-card.active .status-icon {
+        display: none !important;
+    }
+    .soft-card .selected-check {
+        display: none;
+    }
+    .soft-card.active .selected-check {
+        display: inline-flex !important;
+    }
     
     /* CSS สำหรับสถานะ Locked */
     .soft-card.locked {
@@ -250,8 +259,11 @@
                                                     <span class="text-muted" style="font-size: 0.75rem;">Package: {{ sw.version }}</span>
                                                 </div>
                                                 
-                                                <div class="ms-2">
+                                                <div class="ms-2 d-flex align-items-center">
                                                     <i class="bi bi-circle text-muted opacity-25 fs-5 status-icon"></i>
+                                                    <span class="selected-check badge bg-success text-white rounded-pill px-2 py-1" style="font-size: 0.7rem; white-space: nowrap;">
+                                                        <i class="bi bi-check-lg me-1"></i>เลือกแล้ว
+                                                    </span>
                                                 </div>
                                             </div>
                                         </label>

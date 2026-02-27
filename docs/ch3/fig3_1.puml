@@ -1,0 +1,84 @@
+@startuml fig3_1
+!theme plain
+skinparam defaultFontName "Sarabun"
+skinparam defaultFontSize 12
+skinparam componentStyle rectangle
+skinparam linetype ortho
+
+skinparam component {
+  BackgroundColor #EAF3FF
+  BorderColor #2C7BE5
+}
+skinparam database {
+  BackgroundColor #FFF3CD
+  BorderColor #F59E0B
+}
+skinparam cloud {
+  BackgroundColor #F0FFF4
+  BorderColor #10B981
+}
+skinparam rectangle {
+  BackgroundColor #F8F9FA
+  BorderColor #6C757D
+}
+
+' ─── External ───
+actor "ผู้ใช้งาน\n(Browser)" as User
+actor "ผู้ดูแลระบบ\n(Browser)" as Admin
+cloud "UBU External API\nesapi.ubu.ac.th" as UBUAPI
+
+' ─── Django Application ───
+rectangle "Django Application (CKLab)" {
+
+  rectangle "Template Layer (HTML + Bootstrap 5.3 + JS)" as TL {
+    component "Kiosk Templates\n(index, timer, feedback)" as KT
+    component "Admin Templates\n(monitor, booking, manage-pc\nsoftware, report, config)" as AT
+  }
+
+  rectangle "View Layer (Class-Based Views)" as VL {
+    component "kiosk.py\n(IndexView, CheckinView\nCheckoutView, FeedbackView\nVerifyUserAPIView)" as KV
+    component "monitor.py\n(AdminMonitorView\nAdminMonitorDataAPIView\nAdminCheckinView, AdminCheckoutView)" as MV
+    component "booking.py\n(AdminBookingView\nAdminBookingDataAPIView\nAdminImportBookingView)" as BV
+    component "manage_pc.py\n(AdminManagePcView\nAdminAddPcView\nAdminManagePcEditView)" as PV
+    component "software.py\n(AdminSoftwareView\nAdminSoftwareEditView)" as SV
+    component "report.py\n(AdminReportView\nAdminReportExportView)" as RV
+    component "config.py\n(AdminConfigView\nAdminUserView)" as CV
+    component "auth.py\n(LoginView\nLogoutView)" as AV
+  }
+
+  rectangle "Model Layer (Django ORM)" as ML {
+    component "Computer\nSoftware\nBooking\nUsageLog\nSiteConfig\nAdminOnDuty" as Models
+  }
+}
+
+' ─── Database ───
+database "PostgreSQL 15\n(Docker Container)" as DB
+
+' ─── Connections ───
+User --> KT : HTTP Request
+Admin --> AT : HTTP Request (Login Required)
+
+KT --> KV : render / POST
+AT --> MV : render / AJAX
+AT --> BV
+AT --> PV
+AT --> SV
+AT --> RV
+AT --> CV
+AT --> AV
+
+KV --> Models : ORM Query
+MV --> Models
+BV --> Models
+PV --> Models
+SV --> Models
+RV --> Models
+CV --> Models
+AV --> Models
+
+Models --> DB : SQL
+
+KV --> UBUAPI : POST Base64(student_id)\n[HTTPS]
+UBUAPI --> KV : JSON (name, faculty, year)
+
+@enduml

@@ -27,9 +27,10 @@ const FIXED_PC_ID = getSystemPCId();
 
 let verifiedUserData = null;
 let activeTab = 'internal';
-let lastLabStatus = null; 
-let labClosedModal = null; 
+let lastLabStatus = null;
+let labClosedModal = null;
 let isVerifying = false; // ✅ ตัวแปรป้องกันการกดปุ่มตรวจสอบรัวๆ (Double Submit)
+let reservedStudentId = null; // รหัสนักศึกษาที่จองเครื่องนี้ไว้ (null = ไม่มีการจอง)
 
 document.addEventListener('DOMContentLoaded', () => {
     const modalEl = document.getElementById('labClosedModal');
@@ -122,15 +123,36 @@ async function fetchMachineAndLabStatus() {
             else indicator.classList.add('bg-secondary'); 
         }
 
+        // เก็บรหัสนักศึกษาที่จองเครื่องนี้ไว้ เพื่อใช้ตรวจสอบตอน validateForm
+        reservedStudentId = data.next_booking_student_id || null;
+        renderReservedNotice(data.status, reservedStudentId);
+
         const btnConfirm = document.getElementById('btnConfirm');
         if(btnConfirm) {
             btnConfirm.dataset.pcStatus = data.status;
-            validateForm(); 
+            validateForm();
         }
 
     } catch (error) {
         console.error("Error fetching status:", error);
     }
+}
+
+function renderReservedNotice(status, studentId) {
+    let notice = document.getElementById('reservedNotice');
+    if (status !== 'RESERVED') {
+        if (notice) notice.remove();
+        return;
+    }
+    if (!notice) {
+        notice = document.createElement('div');
+        notice.id = 'reservedNotice';
+        notice.className = 'alert alert-warning border-warning fw-bold small rounded-3 mb-3 py-2 px-3';
+        // แทรกก่อนปุ่ม Confirm
+        const btn = document.getElementById('btnConfirm');
+        if (btn) btn.parentNode.insertBefore(notice, btn);
+    }
+    notice.innerHTML = `<i class="bi bi-lock-fill me-2"></i>เครื่องนี้ถูกจองไว้แล้ว — กรุณากรอกรหัสเฉพาะผู้จองเท่านั้น`;
 }
 
 function renderNoPcIdError() {
@@ -292,12 +314,19 @@ function validateForm() {
         isUserValid = (id !== '' && name !== '');
     }
     
-    // ✅ อัปเดต: เปลี่ยนค่าเริ่มต้นจาก 'UNKNOWN' เป็น 'AVAILABLE' 
+    // ✅ อัปเดต: เปลี่ยนค่าเริ่มต้นจาก 'UNKNOWN' เป็น 'AVAILABLE'
     // หากดึงข้อมูลสถานะไม่ทันหรือไม่สำเร็จ ปุ่มจะได้ไม่โดนล็อก
-    const pcStatus = btn.dataset.pcStatus || 'AVAILABLE'; 
+    const pcStatus = btn.dataset.pcStatus || 'AVAILABLE';
     const isAccessible = (pcStatus === 'AVAILABLE' || pcStatus === 'RESERVED');
-    
-    if (isUserValid && isAccessible) {
+
+    // ถ้าเครื่อง RESERVED ต้องตรวจสอบว่ารหัสที่กรอกตรงกับผู้จองไว้
+    let isReservedAllowed = true;
+    if (pcStatus === 'RESERVED' && reservedStudentId) {
+        const enteredId = verifiedUserData ? String(verifiedUserData.id).trim() : '';
+        isReservedAllowed = (enteredId === String(reservedStudentId).trim());
+    }
+
+    if (isUserValid && isAccessible && isReservedAllowed) {
         btn.disabled = false;
         btn.className = 'btn btn-success w-100 py-3 fw-bold shadow-sm rounded-3 transition-btn';
         if (pcStatus === 'RESERVED') {
@@ -310,6 +339,8 @@ function validateForm() {
         btn.className = 'btn btn-secondary w-100 py-3 fw-bold shadow-sm rounded-3 transition-btn';
         if (!isAccessible) {
             btn.innerHTML = `<i class="bi bi-x-circle me-2"></i>เครื่องไม่ว่าง (${pcStatus})`;
+        } else if (pcStatus === 'RESERVED' && isUserValid && !isReservedAllowed) {
+            btn.innerHTML = `<i class="bi bi-shield-lock me-2"></i>รหัสไม่ตรงกับผู้จอง`;
         } else {
             btn.innerHTML = `<i class="bi bi-box-arrow-in-right me-2"></i>เข้าสู่ระบบและเริ่มใช้งาน`;
         }

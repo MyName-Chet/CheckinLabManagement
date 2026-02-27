@@ -1,0 +1,51 @@
+@startuml fig3_12
+!theme plain
+skinparam defaultFontName "Sarabun"
+skinparam defaultFontSize 12
+skinparam ActivityBackgroundColor #EAF3FF
+skinparam ActivityBorderColor #2C7BE5
+skinparam ActivityDiamondBackgroundColor #FFF3CD
+skinparam ActivityDiamondBorderColor #F59E0B
+skinparam ArrowColor #444444
+
+title กระบวนการ Check-in ด้วยรหัส UBU WiFi
+
+|ผู้ใช้งาน (Kiosk)|
+start
+:เลือกโหมด UBU WiFi;
+:กรอกรหัส UBU WiFi;
+:กดปุ่ม "เช็คอิน";
+
+|ระบบ (Django)|
+:เข้ารหัส student_id ด้วย Base64;
+:ส่ง POST request ไปยัง UBU API;
+
+|UBU External API|
+if (API ตอบสนอง?) then (ใช่)
+  :ส่งข้อมูลผู้ใช้กลับ\n(ชื่อ, คณะ, ชั้นปี, ประเภท);
+else (ไม่)
+  |ระบบ (Django)|
+  :แสดงข้อความ Error\n"ไม่สามารถเชื่อมต่อได้";
+  stop
+endif
+
+|ระบบ (Django)|
+:ตรวจสอบสถานะเครื่อง Computer;
+if (เครื่องมีสถานะ AVAILABLE?) then (ใช่)
+  :สร้าง UsageLog ใหม่\n(user_id, user_name, user_type\nstart_time = now());
+  :อัปเดต Computer.status = IN_USE;
+  :Redirect ไปหน้า Timer;
+  |ผู้ใช้งาน (Kiosk)|
+  :เห็นหน้า Timer พร้อมนับเวลา;
+  stop
+else (ไม่)
+  if (เครื่อง IN_USE แต่ไม่มี UsageLog active?\n(Ghost State)) then (ใช่)
+    :แก้ไขสถานะ Computer = AVAILABLE\nอัตโนมัติ (Ghost State Fix);
+    :Redirect กลับหน้าหลัก Kiosk;
+  else (ไม่)
+    :แสดงข้อความ "เครื่องถูกใช้งานอยู่";
+  endif
+  stop
+endif
+
+@enduml

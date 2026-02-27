@@ -26,7 +26,46 @@ class AdminMonitorDataAPIView(LoginRequiredMixin, View):
     def get(self, request):
         now = timezone.now()
         computers = Computer.objects.all().order_by('name')
-        
+
+        # ─── Auto-RESERVED / Auto-Revert Logic ───────────────────────────────
+        # ทำงานครั้งเดียวต่อ poll cycle ก่อนสร้าง pc_list
+        # 1. เครื่องที่ AVAILABLE และมีคิวจองที่ APPROVED เริ่มภายใน 15 นาที → RESERVED
+        # 2. เครื่องที่ RESERVED แต่ยังไม่มีใคร Check-in และเลยเวลาจองไปแล้ว 15 นาที → AVAILABLE
+        window_start = now + timedelta(minutes=15)  # ขอบเขตสำหรับ upcoming booking
+        no_show_cutoff = now - timedelta(minutes=15)  # เลย 15 นาทีหลังเวลาจอง
+
+        for pc in computers:
+            if pc.status == 'AVAILABLE':
+                # ตรวจว่ามี booking APPROVED ที่จะเริ่มภายใน 15 นาที
+                upcoming = Booking.objects.filter(
+                    computer=pc,
+                    status='APPROVED',
+                    start_time__lte=window_start,
+                    start_time__gte=now,
+                ).first()
+                if upcoming:
+                    pc.status = 'RESERVED'
+                    pc.save()
+
+            elif pc.status == 'RESERVED':
+                # ตรวจว่าเลยเวลาจอง 15 นาทีแล้วและยังไม่มีใคร Check-in
+                active_log = UsageLog.objects.filter(computer=pc.name, end_time__isnull=True).last()
+                if not active_log:
+                    # หา booking ที่ทำให้เครื่องนี้ RESERVED
+                    overdue = Booking.objects.filter(
+                        computer=pc,
+                        status='APPROVED',
+                        start_time__lte=no_show_cutoff,
+                        end_time__gte=now,
+                    ).first()
+                    if overdue:
+                        pc.status = 'AVAILABLE'
+                        pc.save()
+
+        # รีเฟรช queryset หลังจากบันทึกสถานะใหม่
+        computers = Computer.objects.all().order_by('name')
+        # ─────────────────────────────────────────────────────────────────────
+
         # 2.1 ดึงประวัติคนที่กำลังใช้งานอยู่ทั้งหมด (ยังไม่ได้ Check-out)
         active_logs = UsageLog.objects.filter(end_time__isnull=True)
         active_users_map = {log.computer: log for log in active_logs}
@@ -54,8 +93,12 @@ class AdminMonitorDataAPIView(LoginRequiredMixin, View):
                 end_time__gte=now
             ).order_by('start_time').first()
             
+            next_booking_start_iso = None
+            next_booking_student_id = None
             if next_booking:
                 next_booking_time = next_booking.start_time.strftime("%H:%M")
+                next_booking_start_iso = next_booking.start_time.isoformat()
+                next_booking_student_id = next_booking.student_id
 
             # ตรวจสอบซอฟต์แวร์
             is_ai = False
@@ -71,6 +114,8 @@ class AdminMonitorDataAPIView(LoginRequiredMixin, View):
                 'user_name': user_name,
                 'elapsed_time': elapsed_time,
                 'next_booking_time': next_booking_time,
+                'next_booking_start_iso': next_booking_start_iso,
+                'next_booking_student_id': next_booking_student_id,
                 'software': software_name,
                 'is_ai': is_ai,
                 'last_updated': pc.last_updated.strftime("%H:%M:%S") if pc.last_updated else '-'

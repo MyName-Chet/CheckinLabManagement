@@ -175,25 +175,35 @@ function toggleFilterMode() {
     const modeEl = document.querySelector('input[name="userTypeOption"]:checked');
     if (!modeEl) return;
     const mode = modeEl.value;
-    
-    ['student', 'staff', 'external', 'all'].forEach(m => {
+
+    // ซ่อนทุก section ก่อน (รองรับทั้ง 'external' และ 'guest')
+    ['student', 'staff', 'external', 'guest', 'all'].forEach(m => {
         const el = document.getElementById(`filter-${m}-section`);
         if(el) el.classList.add('d-none');
     });
 
+    // แสดง section ที่ตรงกับ value ของ radio ที่เลือก
     const targetEl = document.getElementById(`filter-${mode}-section`);
-    if(targetEl) targetEl.classList.remove('d-none');
+    if(targetEl) {
+        targetEl.classList.remove('d-none');
+    } else {
+        // fallback: ถ้าไม่มี section เฉพาะ ให้ตกกลับไปแสดง filter-all-section
+        const fallback = document.getElementById('filter-all-section');
+        if(fallback) fallback.classList.remove('d-none');
+    }
 }
 
 function toggleTimeInputs() {
     const typeEl = document.getElementById('timeFilterType');
     if (!typeEl) return;
     const type = typeEl.value;
-    
+
     ['daily', 'monthly', 'yearly'].forEach(t => {
-        document.getElementById(`input-${t}`).classList.add('d-none');
+        const el = document.getElementById(`input-${t}`);
+        if (el) el.classList.add('d-none');
     });
-    document.getElementById(`input-${type}`).classList.remove('d-none');
+    const target = document.getElementById(`input-${type}`);
+    if (target) target.classList.remove('d-none');
 }
 
 function toggleCheckAll(containerId) {
@@ -302,7 +312,7 @@ function applyFilters() {
                 return currentLogFaculty.includes(selectedOrgClean) || selectedOrgClean.includes(currentLogFaculty);
             });
         }
-        else if (userMode === 'external') {
+        else if (userMode === 'external' || userMode === 'guest') {
             if (!role.includes('guest') && !role.includes('external') && !role.includes('ภายนอก')) return false;
         }
         

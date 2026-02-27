@@ -73,13 +73,12 @@ async function renderMonitor({ skipBookingTable = false } = {}) {
             displayPcs = displayPcs.filter(pc => pc.status === currentFilter);
         }
 
-        grid.innerHTML = '';
         if (displayPcs.length === 0) {
-            grid.innerHTML = `<div class="col-12 text-center text-muted py-5 fw-bold"><i class="bi bi-inbox fs-1 d-block mb-2 text-secondary opacity-50"></i>ไม่พบข้อมูลเครื่องคอมพิวเตอร์</div>`;
+            const empty = `<div class="col-12 text-center text-muted py-5 fw-bold"><i class="bi bi-inbox fs-1 d-block mb-2 text-secondary opacity-50"></i>ไม่พบข้อมูลเครื่องคอมพิวเตอร์</div>`;
+            if (grid.innerHTML !== empty) grid.innerHTML = empty;
         } else {
-            displayPcs.forEach(pc => {
-                grid.innerHTML += generatePcCardHtml(pc);
-            });
+            // DOM Diffing: อัปเดตเฉพาะ card ที่เปลี่ยนแปลง ไม่ล้าง DOM ทั้งหมด
+            diffPcGrid(grid, displayPcs);
         }
 
         // 3. จัดการข้อมูลตารางคิวจองล่วงหน้า (แท็บที่ 2)
@@ -93,15 +92,83 @@ async function renderMonitor({ skipBookingTable = false } = {}) {
     }
 }
 
+// คืนค่า true ถ้า booking จะเริ่มภายในอีก `minutes` นาทีนับจากขณะนี้
+function isBookingSoon(isoString, minutes = 30) {
+    if (!isoString) return false;
+    const bookingTime = new Date(isoString).getTime();
+    const now = Date.now();
+    return bookingTime > now && bookingTime - now <= minutes * 60 * 1000;
+}
+
+// DOM Diffing: เปรียบเทียบ card ที่มีกับข้อมูลใหม่ อัปเดตเฉพาะส่วนที่เปลี่ยน
+function diffPcGrid(grid, displayPcs) {
+    const existingCards = {};
+    grid.querySelectorAll('[data-pc-name]').forEach(el => {
+        existingCards[el.dataset.pcName] = el;
+    });
+
+    const newNames = new Set(displayPcs.map(pc => pc.name));
+
+    // ลบ card ของเครื่องที่ filter ออกไปแล้ว
+    Object.keys(existingCards).forEach(name => {
+        if (!newNames.has(name)) existingCards[name].remove();
+    });
+
+    displayPcs.forEach((pc, index) => {
+        const newHtml = generatePcCardHtml(pc);
+        const existing = existingCards[pc.name];
+
+        if (!existing) {
+            // card ใหม่ ต้องสร้าง
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = newHtml;
+            const newCard = wrapper.firstElementChild;
+            // แทรกในตำแหน่งที่ถูกต้องตาม order
+            const refNode = grid.children[index] || null;
+            grid.insertBefore(newCard, refNode);
+        } else {
+            // card มีอยู่แล้ว — ตรวจสอบเฉพาะ inner content ของ card-body
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = newHtml;
+            const newCardBody = wrapper.querySelector('.card-body');
+            const oldCardBody = existing.querySelector('.card-body');
+            if (newCardBody && oldCardBody && newCardBody.innerHTML !== oldCardBody.innerHTML) {
+                oldCardBody.innerHTML = newCardBody.innerHTML;
+            }
+            // ตรวจ border color (status เปลี่ยน)
+            const newCard = wrapper.firstElementChild?.querySelector('.card');
+            const oldCard = existing.querySelector('.card');
+            if (newCard && oldCard && newCard.style.borderTopColor !== oldCard.style.borderTopColor) {
+                oldCard.style.borderTop = newCard.style.borderTop;
+            }
+            // จัดลำดับให้ถูกต้อง (ถ้าเลื่อน index)
+            const currentIndex = Array.from(grid.children).indexOf(existing);
+            if (currentIndex !== index) {
+                const refNode = grid.children[index] || null;
+                grid.insertBefore(existing, refNode);
+            }
+        }
+    });
+}
+
 // ฟังก์ชันสร้าง HTML สำหรับ Card PC แต่ละเครื่อง
 function generatePcCardHtml(pc) {
     let statusClass = '', iconClass = '', label = '', actionHtml = '', userDisplay = '';
-    
+
+    // ตรวจสอบว่า PC ที่ว่างอยู่มีการจองที่จะมาถึงใน 30 นาทีหรือไม่
+    const bookingSoon = pc.status === 'AVAILABLE' && isBookingSoon(pc.next_booking_start_iso);
+
     switch(pc.status) {
-        case 'AVAILABLE': 
-            statusClass = 'text-success'; iconClass = 'bi-check-circle'; label = 'ว่าง'; 
-            userDisplay = `<div class="mt-1 text-muted small">พร้อมใช้งาน</div>`;
-            actionHtml = `<button onclick="openCheckInModal('${pc.name}')" class="btn btn-outline-success btn-sm w-100 rounded-pill mt-3"><i class="bi bi-box-arrow-in-right me-1"></i> เช็คอิน</button>`;
+        case 'AVAILABLE':
+            if (bookingSoon) {
+                statusClass = 'text-warning'; iconClass = 'bi-clock-history'; label = 'ว่าง (มีจองใกล้มา)';
+                userDisplay = `<div class="mt-1 text-warning small fw-bold"><i class="bi bi-calendar-event"></i> จองเวลา ${pc.next_booking_time}</div>`;
+                actionHtml = `<button onclick="openCheckInModal('${pc.name}')" class="btn btn-outline-warning btn-sm w-100 rounded-pill mt-3"><i class="bi bi-box-arrow-in-right me-1"></i> เช็คอิน</button>`;
+            } else {
+                statusClass = 'text-success'; iconClass = 'bi-check-circle'; label = 'ว่าง';
+                userDisplay = `<div class="mt-1 text-muted small">พร้อมใช้งาน</div>`;
+                actionHtml = `<button onclick="openCheckInModal('${pc.name}')" class="btn btn-outline-success btn-sm w-100 rounded-pill mt-3"><i class="bi bi-box-arrow-in-right me-1"></i> เช็คอิน</button>`;
+            }
             break;
         case 'IN_USE': 
             statusClass = 'text-danger'; iconClass = 'bi-person-workspace'; label = 'ใช้งานอยู่'; 
@@ -127,7 +194,7 @@ function generatePcCardHtml(pc) {
         '<div class="mt-2" style="height: 24px;"></div>';
 
     return `
-        <div class="col-6 col-md-4 col-lg-3 animate-fade">
+        <div class="col-6 col-md-4 col-lg-3" data-pc-name="${pc.name}">
             <div class="card h-100 shadow-sm position-relative" style="border-top: 4px solid var(--bs-${statusClass.split('-')[1]}); border-radius: 12px;">
                 <div class="card-body text-center p-3 d-flex flex-column">
                     <i class="bi ${iconClass} display-6 ${statusClass} mb-2"></i>
@@ -148,12 +215,9 @@ function renderFutureBookings(bookings) {
     const bookingTableBody = document.getElementById('futureBookingTableBody');
     if (!bookingTableBody) return;
 
-    if (bookings.length === 0) {
-        bookingTableBody.innerHTML = `<tr><td colspan="5" class="text-center py-5 text-muted"><i class="bi bi-calendar-x d-block fs-2 opacity-50 mb-2"></i>ไม่พบข้อมูลคิวจองล่วงหน้า</td></tr>`;
-        return;
-    }
-
-    bookingTableBody.innerHTML = bookings.map(b => `
+    const newHtml = bookings.length === 0
+        ? `<tr><td colspan="5" class="text-center py-5 text-muted"><i class="bi bi-calendar-x d-block fs-2 opacity-50 mb-2"></i>ไม่พบข้อมูลคิวจองล่วงหน้า</td></tr>`
+        : bookings.map(b => `
         <tr>
             <td class="ps-4">${b.date}</td>
             <td class="text-primary fw-bold">${b.time}</td>
@@ -164,6 +228,10 @@ function renderFutureBookings(bookings) {
             <td><span class="badge bg-warning text-dark border border-warning bg-opacity-25">อนุมัติแล้ว</span></td>
         </tr>
     `).join('');
+
+    if (bookingTableBody.innerHTML !== newHtml) {
+        bookingTableBody.innerHTML = newHtml;
+    }
 }
 
 function updateMonitorStats(counts) {

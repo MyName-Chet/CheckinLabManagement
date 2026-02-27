@@ -1,0 +1,21 @@
+@startuml fig3_7
+!theme plain
+skinparam defaultFontName "Sarabun"
+
+salt
+{
+  { [Monitor] | <b>[Booking]</b> | [Manage PC] | [Software] | [Report] | [Config] }
+  ==
+  <b>จัดการการจอง (Booking)</b>
+  { [+ เพิ่มการจอง] | [นำเข้า CSV] }
+  ==
+  {
+    วันที่ | เวลา | ผู้จอง | เครื่อง | สถานะ | จัดการ
+    2568-03-01 | 09:00-11:00 | 6501234567 | PC-03 | <color:green>APPROVED</color> | [ดู]
+    2568-03-01 | 13:00-15:00 | 6507654321 | PC-05 | <color:orange>PENDING</color> | [อนุมัติ][ปฏิเสธ]
+    2568-03-02 | 10:00-12:00 | 6509876543 | PC-01 | <color:red>REJECTED</color> | [ดู]
+  }
+  ==
+  <i>แสดง 3 รายการ จากทั้งหมด 12 รายการ</i>
+}
+@enduml

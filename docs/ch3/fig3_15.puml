@@ -1,0 +1,42 @@
+@startuml fig3_15
+!theme plain
+skinparam defaultFontName "Sarabun"
+skinparam defaultFontSize 12
+skinparam ActivityBackgroundColor #EAF3FF
+skinparam ActivityBorderColor #2C7BE5
+skinparam ActivityDiamondBackgroundColor #FFF3CD
+skinparam ActivityDiamondBorderColor #F59E0B
+skinparam ArrowColor #444444
+
+title กระบวนการอัปเดต Monitor Dashboard แบบเรียลไทม์ (AJAX Polling)
+
+|Admin Browser (JavaScript)|
+start
+:เปิดหน้า Monitor Dashboard;
+:โหลดหน้าเว็บครั้งแรก\n(HTML + แสดงสถานะเริ่มต้น);
+
+repeat
+  :รอ 3 วินาที;
+  :ส่ง AJAX GET Request\nไปยัง /admin-portal/api/monitor/data/;
+
+  |ระบบ Django (API View)|
+  :Query ข้อมูล Computer ทั้งหมด\nพร้อม UsageLog ที่ active;
+  :คำนวณเวลาสะสมแต่ละเครื่อง;
+  :หา Booking ถัดไป (APPROVED)\nของแต่ละเครื่อง;
+  :สร้าง JSON Response\n{computers: [...], bookings: [...]\nlast_updated: "14:32:05"};
+
+  |Admin Browser (JavaScript)|
+  :รับ JSON Response;
+  if (ข้อมูลเปลี่ยนแปลง?) then (ใช่)
+    :อัปเดต DOM ของการ์ด PC ทุกใบ\n(สถานะ, ชื่อผู้ใช้, เวลาสะสม\nเวลาจองถัดไป);
+    :อัปเดต Summary Cards\n(ว่าง / ใช้งาน / จอง / แจ้งซ่อม);
+  else (ไม่)
+    :ไม่อัปเดต DOM;
+  endif
+
+repeat while (Admin ยังอยู่ในหน้า Monitor?) is (ใช่)
+-> ไม่ (ปิดหน้า / Logout);
+
+stop
+
+@enduml

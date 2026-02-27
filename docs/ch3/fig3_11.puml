@@ -1,0 +1,33 @@
+@startuml fig3_11
+!theme plain
+skinparam defaultFontName "Sarabun"
+
+salt
+{
+  { [Monitor] | [Booking] | [Manage PC] | [Software] | [Report] | <b>[Config]</b> }
+  ==
+  <b>ตั้งค่าระบบ (System Configuration)</b>
+  ==
+  ข้อมูลห้องปฏิบัติการ
+  ชื่อห้อง:    "[CKLab Computer Center    ]"
+  สถานที่:     "[อาคาร 4 ชั้น 2           ]"
+  ==
+  การให้บริการ
+  สถานะ:      [X] เปิดให้บริการ
+  ระบบจอง:   [X] เปิดระบบจอง
+  ==
+  ประกาศสำหรับผู้ใช้
+  "ห้องปฏิบัติการเปิดให้บริการ 08:30-16:30 น."
+  ==
+  [ บันทึกการตั้งค่า ]
+  ==
+  --
+  <b>จัดการบัญชีผู้ดูแลระบบ</b>
+  [+ เพิ่มผู้ดูแลใหม่]
+  {
+    Username | ชื่อ-สกุล | สถานะ | จัดการ
+    admin01 | สมศักดิ์ รักดี | <color:green>Active</color> | [แก้ไข][ลบ]
+    admin02 | วิไล ใจงาม | <color:green>Active</color> | [แก้ไข][ลบ]
+  }
+}
+@enduml
