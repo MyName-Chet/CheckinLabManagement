@@ -21,7 +21,7 @@ def make_software(**kwargs):
 def make_computer(software=None, status='AVAILABLE', **kwargs):
     if software is None:
         software = make_software(name=f'SW-{Computer.objects.count()}')
-    d = {'name': f'PC-{Computer.objects.count() + 1:02d}', 'Software': software, 'status': status}
+    d = {'name': f'PC-{Computer.objects.count() + 1:02d}', 'software': software, 'status': status}
     d.update(kwargs)
     return Computer.objects.create(**d)
 
@@ -49,8 +49,8 @@ class SoftwareModelTest(TestCase):
         self.assertIn('3.11', str(sw))
 
     def test_ai_type(self):
-        sw = make_software(name='ChatGPT', version='4o', type='AI')
-        self.assertEqual(sw.type, 'AI')
+        sw = make_software(name='ChatGPT', version='4o', type='AI Tool')
+        self.assertEqual(sw.type, 'AI Tool')
 
     def test_expire_date_optional(self):
         sw = Software.objects.create(name='FreeSW', version='1.0', type='Software', expire_date=None)
@@ -60,10 +60,10 @@ class SoftwareModelTest(TestCase):
 class ComputerModelTest(TestCase):
     def test_create_computer(self):
         sw = make_software()
-        pc = Computer.objects.create(name='PC-01', Software=sw, status='AVAILABLE')
+        pc = Computer.objects.create(name='PC-01', software=sw, status='AVAILABLE')
         self.assertEqual(pc.name, 'PC-01')
         self.assertEqual(pc.status, 'AVAILABLE')
-        self.assertEqual(pc.Software, sw)
+        self.assertEqual(pc.software, sw)
 
     def test_status_choices(self):
         pc = make_computer(status='IN_USE')
@@ -75,8 +75,8 @@ class ComputerModelTest(TestCase):
             make_computer(name='PC-99')
 
     def test_software_nullable(self):
-        pc = Computer.objects.create(name='PC-00', Software=None, status='AVAILABLE')
-        self.assertIsNone(pc.Software)
+        pc = Computer.objects.create(name='PC-00', software=None, status='AVAILABLE')
+        self.assertIsNone(pc.software)
 
 
 class AdminonDutyModelTest(TestCase):
@@ -98,13 +98,13 @@ class AdminonDutyModelTest(TestCase):
 
 class SiteConfigModelTest(TestCase):
     def test_create_site_config(self):
-        config = SiteConfig.objects.create(lab_name='CKLab', is_open=True)
-        self.assertEqual(config.lab_name, 'CKLab')
+        config = SiteConfig.objects.create(lab_name='LabLink', is_open=True)
+        self.assertEqual(config.lab_name, 'LabLink')
         self.assertTrue(config.is_open)
 
     def test_default_values(self):
         config = SiteConfig.objects.create()
-        self.assertEqual(config.lab_name, 'CKLab')
+        self.assertEqual(config.lab_name, 'LabLink')
         self.assertTrue(config.is_open)
         self.assertTrue(config.booking_enabled)
 
@@ -112,6 +112,10 @@ class SiteConfigModelTest(TestCase):
         admin = AdminonDuty.objects.create(admin_on_duty='Staff A')
         config = SiteConfig.objects.create(admin_on_duty=admin)
         self.assertEqual(config.admin_on_duty, admin)
+        
+    def test_feedback_url_optional(self):
+        config = SiteConfig.objects.create(lab_name='LabLink')
+        self.assertIsNone(config.feedback_url)
 
 
 class BookingModelTest(TestCase):
@@ -148,7 +152,7 @@ class UsageLogModelTest(TestCase):
             user_name='Test User',
             user_type='student',
             computer='PC-01',
-            Software='MATLAB'
+            software='MATLAB'
         )
         self.assertEqual(log.user_id, '64010001')
         self.assertIsNone(log.end_time)
@@ -159,11 +163,6 @@ class UsageLogModelTest(TestCase):
         log.end_time = timezone.now()
         log.save()
         self.assertIsNotNone(log.end_time)
-
-    def test_satisfaction_score_optional(self):
-        log = UsageLog.objects.create(user_id='u2', user_name='U2', user_type='guest')
-        self.assertIsNone(log.satisfaction_score)
-        self.assertIsNone(log.comment)
 
 
 # ===========================================================================
@@ -333,7 +332,7 @@ class AdminAuthGuardTest(TestCase):
 class IndexViewTest(TestCase):
     def setUp(self):
         self.client = Client()
-        self.config = SiteConfig.objects.create(is_open=True)
+        self.config = SiteConfig.objects.create(lab_name='LabLink', is_open=True)
         self.pc = make_computer(name='PC-01')
 
     def test_index_get_returns_200(self):
@@ -371,7 +370,7 @@ class IndexViewTest(TestCase):
 class CheckinViewTest(TestCase):
     def setUp(self):
         self.client = Client()
-        self.config = SiteConfig.objects.create(is_open=True)
+        self.config = SiteConfig.objects.create(lab_name='LabLink', is_open=True)
         self.pc = make_computer(name='PC-01')
 
     def test_checkin_get_redirects(self):
@@ -444,7 +443,7 @@ class CheckoutViewTest(TestCase):
 class StatusViewTest(TestCase):
     def setUp(self):
         self.client = Client()
-        self.config = SiteConfig.objects.create(is_open=True)
+        self.config = SiteConfig.objects.create(lab_name='LabLink', is_open=True)
         self.pc = make_computer(name='PC-01')
 
     def test_status_returns_json(self):
@@ -479,23 +478,6 @@ class FeedbackViewTest(TestCase):
     def test_feedback_get_returns_200(self):
         resp = self.client.get(reverse('feedback', kwargs={'pc_id': 'PC-01', 'software_id': self.log.id}))
         self.assertEqual(resp.status_code, 200)
-
-    def test_feedback_post_saves_score(self):
-        resp = self.client.post(
-            reverse('feedback', kwargs={'pc_id': 'PC-01', 'software_id': self.log.id}),
-            {'satisfaction_score': '5', 'comment': 'Great!'}
-        )
-        self.assertEqual(resp.status_code, 302)
-        self.log.refresh_from_db()
-        self.assertEqual(self.log.satisfaction_score, 5)
-        self.assertEqual(self.log.comment, 'Great!')
-
-    def test_feedback_post_invalid_log_id_still_redirects(self):
-        resp = self.client.post(
-            reverse('feedback', kwargs={'pc_id': 'PC-01', 'software_id': 9999}),
-            {'satisfaction_score': '3'}
-        )
-        self.assertEqual(resp.status_code, 302)
 
 
 # ===========================================================================
@@ -611,7 +593,7 @@ class AdminManagePcViewTest(TestCase):
     def test_add_pc_post_creates_computer(self):
         resp = self.client.post(reverse('admin_add_pc'), {
             'name': 'PC-99',
-            'Software': self.sw.pk,
+            'software': self.sw.pk,
             'status': 'AVAILABLE',
         })
         self.assertIn(resp.status_code, [200, 302])
@@ -624,7 +606,7 @@ class AdminManagePcViewTest(TestCase):
     def test_edit_pc_post_updates(self):
         resp = self.client.post(
             reverse('admin_manage_pc_edit', kwargs={'pc_id': self.pc.pk}),
-            {'name': 'PC-01', 'Software': self.sw.pk, 'status': 'MAINTENANCE'}
+            {'name': 'PC-01', 'software': self.sw.pk, 'status': 'MAINTENANCE'}
         )
         self.assertIn(resp.status_code, [200, 302])
 
@@ -781,8 +763,8 @@ class AdminReportViewTest(TestCase):
     def test_report_import_csv_valid(self):
         csv_content = (
             '\ufeff'
-            'รหัสผู้ใช้,ชื่อ-สกุล,Software,วันที่,เวลา (เข้า-ออก),คณะ/หน่วยงาน,ชั้นปี,ประเภท,PC,คะแนน,ข้อเสนอแนะ\r\n'
-            '64010099,Test Import,MATLAB,17/01/2026,09:00 - 10:30,Science,2,นักศึกษา,PC-01,5,Great\r\n'
+            'รหัสผู้ใช้,ชื่อ-สกุล,Software,วันที่,เวลา (เข้า-ออก),คณะ/หน่วยงาน,ชั้นปี,ประเภท,PC\r\n'
+            '64010099,Test Import,MATLAB,17/01/2026,09:00 - 10:30,Science,2,นักศึกษา,PC-01\r\n'
         )
         csv_file = io.BytesIO(csv_content.encode('utf-8-sig'))
         csv_file.name = 'import.csv'
@@ -805,7 +787,7 @@ class AdminConfigViewTest(TestCase):
         self.client = Client()
         self.admin = make_admin()
         self.client.login(username='admin', password='adminpass123')
-        self.config = SiteConfig.objects.create(lab_name='CKLab', is_open=True)
+        self.config = SiteConfig.objects.create(lab_name='LabLink', is_open=True)
 
     def test_config_get_returns_200(self):
         resp = self.client.get(reverse('admin_config'))
@@ -818,5 +800,6 @@ class AdminConfigViewTest(TestCase):
             'booking_enabled': True,
             'announcement': 'Hello',
             'location': 'Building A',
+            'feedback_url': 'https://docs.google.com/forms/d/e/1FAIpQLSfnaw6G3NFsuKwngOenWfQ2pU3AQDAYbJ-ON1W5TpU8xjDeKw/viewform?embedded=true'
         })
         self.assertIn(resp.status_code, [200, 302])
