@@ -177,10 +177,11 @@ class AdminReportExportView(LoginRequiredMixin, View):
 
         # 🌟 2. ถ้าระบุคณะ/หน่วยงานมา ให้กรองข้อมูลตามรายชื่อเหล่านั้นก่อน
         if department_str:
-            # แปลง string ที่คั่นด้วยลูกน้ำ ให้กลายเป็น List
-            dept_list = [d.strip() for d in department_str.split(',')]
-            # กรองเอาเฉพาะแถวที่ department ตรงกับใน List (__in)
-            logs = logs.filter(department__in=dept_list)
+            # แปลง string เป็น list และลบคณะที่ว่างทิ้ง (ถ้ามีคนส่ง ,, มา)
+            dept_list = [d.strip() for d in department_str.split(',') if d.strip()]
+            if dept_list:
+                # ใช้ Q object เพื่อกรองแบบ case-insensitive หรือตรงตัวใน list
+                logs = logs.filter(department__in=dept_list)
 
         # 3. จัดการกรองวันที่ตามปกติ
         if start_date_str and end_date_str:

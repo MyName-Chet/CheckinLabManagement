@@ -271,6 +271,7 @@
                         <select id="timeFilterType" class="form-select bg-white text-primary fw-bold" onchange="toggleTimeInputs()">
                             <option value="daily">รายวัน</option>
                             <option value="monthly">รายเดือน</option>
+                            <option value="quarterly">รายไตรมาส</option>
                             <option value="yearly">รายปี</option>
                         </select>
                     </div>
@@ -290,6 +291,15 @@
                             <input type="month" id="monthStart" class="form-control">
                             <span class="input-group-text bg-white">ถึง</span>
                             <input type="month" id="monthEnd" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 time-input-group d-none" id="input-quarterly">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white">ปี พ.ศ.</span>
+                            <select id="quarterYear" class="form-select" onchange="updateQuarterLabels()"></select>
+                            <span class="input-group-text bg-white">ไตรมาส</span>
+                            <select id="quarterSelect" class="form-select"></select>
                         </div>
                     </div>
 

@@ -37,7 +37,6 @@ let dailyTrendLineInstance = null;
 // 🚀 DJANGO API INTEGRATION
 // ==========================================
 
-// ฟังก์ชันดึงข้อมูลจาก Django Backend และ Map ฟิลด์ให้ตรงกับที่ JS และกราฟต้องการ
 async function fetchLogsFromDjango() {
     try {
         const response = await fetch('/admin-portal/report/api/logs/'); 
@@ -58,7 +57,7 @@ async function fetchLogsFromDjango() {
                 id: log.id,
                 userId: log.user_id,
                 userName: log.user_name,
-                userRole: log.user_type, // 'student', 'staff', 'guest'
+                userRole: log.user_type, 
                 userFaculty: log.department || 'ไม่ระบุ',
                 userLevel: 'ปริญญาตรี', 
                 userYear: log.user_year || '-',
@@ -82,7 +81,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     initFilters();      
     initDateInputs();   
     
-    // โหลดข้อมูลครั้งแรกจาก Django
     allLogs = await fetchLogsFromDjango();
     lastLogCount = allLogs.length; 
     
@@ -93,8 +91,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     applyFilters(); 
-
-    // เช็คข้อมูลใหม่จาก Backend ทุก 10 วินาที
     setInterval(checkForUpdates, 10000); 
 });
 
@@ -125,7 +121,6 @@ function initFilters() {
 
     const orgContainer = document.getElementById('staffOrgList');
     if (orgContainer) {
-        // ✅ นำรายชื่อ "คณะ" (FACULTY_LIST) มารวมกับ "หน่วยงาน" (ORG_LIST)
         const ALL_STAFF_DEPTS = [...FACULTY_LIST, ...ORG_LIST];
         orgContainer.innerHTML = ALL_STAFF_DEPTS.map((org, index) => `
             <div class="form-check">
@@ -137,15 +132,22 @@ function initFilters() {
 
     const yearStart = document.getElementById('yearStart');
     const yearEnd = document.getElementById('yearEnd');
+    const qYear = document.getElementById('quarterYear'); // 🌟 dropdown สำหรับปีไตรมาส
+
     if (yearStart && yearEnd) {
         const currentYear = new Date().getFullYear() + 543;
         for (let y = currentYear; y >= currentYear - 5; y--) {
-            yearStart.innerHTML += `<option value="${y - 543}">${y}</option>`;
-            yearEnd.innerHTML += `<option value="${y - 543}">${y}</option>`;
+            const yValue = y - 543;
+            yearStart.innerHTML += `<option value="${yValue}">${y}</option>`;
+            yearEnd.innerHTML += `<option value="${yValue}">${y}</option>`;
+            if(qYear) qYear.innerHTML += `<option value="${yValue}">${y}</option>`;
         }
         yearStart.value = currentYear - 543;
         yearEnd.value = currentYear - 543;
+        if(qYear) qYear.value = currentYear - 543;
     }
+
+    updateQuarterLabels(); // อัปเดต Label ไตรมาสตอนเริ่ม
 }
 
 function initDateInputs() {
@@ -165,6 +167,23 @@ function initDateInputs() {
     if (mEnd) mEnd.value = mStr;
 }
 
+// 🌟 ฟังก์ชันสำหรับอัปเดต Label ของไตรมาส ให้มีปี พ.ศ. กำกับ
+function updateQuarterLabels() {
+    const qSelect = document.getElementById('quarterSelect');
+    const qYearEl = document.getElementById('quarterYear');
+    if (!qSelect || !qYearEl) return;
+
+    const currentThaiYear = parseInt(qYearEl.options[qYearEl.selectedIndex].text);
+    const nextThaiYear = currentThaiYear + 1;
+
+    qSelect.innerHTML = `
+        <option value="1">ไตรมาส 1 (ต.ค.-ธ.ค. ${currentThaiYear})</option>
+        <option value="2">ไตรมาส 2 (ม.ค.-มี.ค. ${nextThaiYear})</option>
+        <option value="3">ไตรมาส 3 (เม.ย.-มิ.ย. ${nextThaiYear})</option>
+        <option value="4">ไตรมาส 4 (ก.ค.-ก.ย. ${nextThaiYear})</option>
+    `;
+}
+
 // ==========================================
 // 2. UI INTERACTION
 // ==========================================
@@ -174,18 +193,15 @@ function toggleFilterMode() {
     if (!modeEl) return;
     const mode = modeEl.value;
 
-    // ซ่อนทุก section ก่อน (รองรับทั้ง 'external' และ 'guest')
     ['student', 'staff', 'external', 'guest', 'all'].forEach(m => {
         const el = document.getElementById(`filter-${m}-section`);
         if(el) el.classList.add('d-none');
     });
 
-    // แสดง section ที่ตรงกับ value ของ radio ที่เลือก
     const targetEl = document.getElementById(`filter-${mode}-section`);
     if(targetEl) {
         targetEl.classList.remove('d-none');
     } else {
-        // fallback: ถ้าไม่มี section เฉพาะ ให้ตกกลับไปแสดง filter-all-section
         const fallback = document.getElementById('filter-all-section');
         if(fallback) fallback.classList.remove('d-none');
     }
@@ -196,7 +212,7 @@ function toggleTimeInputs() {
     if (!typeEl) return;
     const type = typeEl.value;
 
-    ['daily', 'monthly', 'yearly'].forEach(t => {
+    ['daily', 'monthly', 'quarterly', 'yearly'].forEach(t => {
         const el = document.getElementById(`input-${t}`);
         if (el) el.classList.add('d-none');
     });
@@ -277,9 +293,19 @@ function applyFilters() {
             const yEnd = parseInt(document.getElementById('yearEnd').value);
             const logYear = logDate.getFullYear(); 
             if (logYear < yStart || logYear > yEnd) return false;
+        } else if (timeMode === 'quarterly') {
+            // 🌟 กรองแบบรายไตรมาส (ปีงบประมาณไทย ตุลาคมเป็น Q1)
+            const qYear = parseInt(document.getElementById('quarterYear').value);
+            const qVal = parseInt(document.getElementById('quarterSelect').value);
+            let qStart, qEnd;
+            if (qVal === 1) { qStart = new Date(qYear, 9, 1); qEnd = new Date(qYear, 11, 31, 23, 59, 59); } 
+            else if (qVal === 2) { qStart = new Date(qYear + 1, 0, 1); qEnd = new Date(qYear + 1, 2, 31, 23, 59, 59); } 
+            else if (qVal === 3) { qStart = new Date(qYear + 1, 3, 1); qEnd = new Date(qYear + 1, 5, 30, 23, 59, 59); } 
+            else if (qVal === 4) { qStart = new Date(qYear + 1, 6, 1); qEnd = new Date(qYear + 1, 8, 30, 23, 59, 59); }
+            if (logDate < qStart || logDate > qEnd) return false;
         }
 
-        // 2. กรองประเภทผู้ใช้ (เพิ่มอาจารย์)
+        // 2. กรองประเภทผู้ใช้ 
         const role = (log.userRole || '').toLowerCase();
         
         if (userMode === 'student') {
@@ -300,7 +326,6 @@ function applyFilters() {
             }
         } 
         else if (userMode === 'staff') {
-            // ✅ ครอบคลุมคำที่เป็นไปได้ทั้งหมดสำหรับบุคลากรและอาจารย์
             const staffKeywords = ['staff', 'admin', 'teacher', 'อาจารย์', 'บุคลากร'];
             if (!staffKeywords.some(kw => role.includes(kw))) return false;
             
@@ -342,6 +367,12 @@ function applyFilters() {
             } else {
                 timeLabel = (dateObj.getFullYear() + 543).toString();
             }
+        } else if (timeMode === 'quarterly') {
+            const logMonth = dateObj.getMonth();
+            if (logMonth >= 9 && logMonth <= 11) timeLabel = "Q1 (ต.ค.-ธ.ค.)";
+            else if (logMonth >= 0 && logMonth <= 2) timeLabel = "Q2 (ม.ค.-มี.ค.)";
+            else if (logMonth >= 3 && logMonth <= 5) timeLabel = "Q3 (เม.ย.-มิ.ย.)";
+            else if (logMonth >= 6 && logMonth <= 8) timeLabel = "Q4 (ก.ค.-ก.ย.)";
         }
         timeChartData[timeLabel] = (timeChartData[timeLabel] || 0) + 1;
     });
@@ -481,6 +512,11 @@ function drawDailyTrendLineChart(dailyData, timeMode, isSingleYear = false) {
             }
         }
     } 
+    // 🌟 เพิ่มเงื่อนไขเรียงลำดับให้กราฟแสดง Q1, Q2, Q3, Q4 ถูกต้อง
+    else if (timeMode === 'quarterly') {
+        labels = ["Q1 (ต.ค.-ธ.ค.)", "Q2 (ม.ค.-มี.ค.)", "Q3 (เม.ย.-มิ.ย.)", "Q4 (ก.ค.-ก.ย.)"];
+        dataPoints = labels.map(q => dailyData[q] || 0);
+    }
     else if (timeMode === 'daily' || timeMode === 'monthly') {
         let startD, endD;
         if (timeMode === 'daily') {
@@ -654,28 +690,28 @@ function drawAIUsagePieChart(d) {
                             }
                             return [];
                         }
-                    },
-                    onClick: (e, legendItem, legend) => {
-                        const index = legendItem.index;
-                        const ci = legend.chart;
-                        if (ci.isDatasetVisible(0)) {
-                            ci.toggleDataVisibility(index);
-                            ci.update();
-                        }
                     }
                 },
-                tooltip: { 
-                    callbacks: { 
-                        label: (context) => {
-                            const value = context.raw;
-                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                            return ` ${context.label}: ${value.toLocaleString()} ครั้ง (${percentage}%)`;
-                        } 
+                onClick: (e, legendItem, legend) => {
+                    const index = legendItem.index;
+                    const ci = legend.chart;
+                    if (ci.isDatasetVisible(0)) {
+                        ci.toggleDataVisibility(index);
+                        ci.update();
+                    }
+                }
+            },
+            tooltip: { 
+                callbacks: { 
+                    label: (context) => {
+                        const value = context.raw;
+                        const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                        return ` ${context.label}: ${value.toLocaleString()} ครั้ง (${percentage}%)`;
                     } 
                 } 
-            }, 
-            cutout: '65%'
-        } 
+            } 
+        }, 
+        cutout: '65%'
     }); 
 }
 
@@ -707,12 +743,10 @@ function renderLogHistory(logs) {
     const endIndex = Math.min(startIndex + rowsPerPage, totalItems);
     
     const currentLogs = filteredLogsGlobal
-        // ใช้ timestamp เพราะคุณแมพไว้ใน Fetch ครึ่งแรกแล้ว
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
         .slice(startIndex, endIndex);
 
     tbody.innerHTML = currentLogs.map((log, i) => {
-        // จัดการวันที่อย่างปลอดภัย
         let dateStr = "-";
         let timeRangeStr = "-";
 
@@ -732,7 +766,6 @@ function renderLogHistory(logs) {
             }
         }
         
-        // เช็ค Role ตาม userRole ที่คุณ Map ไว้
         let roleBadge = '<span class="badge bg-secondary">Unknown</span>';
         const userRole = String(log.userRole || "").toLowerCase();
 
@@ -744,7 +777,6 @@ function renderLogHistory(logs) {
             roleBadge = '<span class="badge bg-dark">บุคคลภายนอก</span>';
         }
 
-        // Software
         let swTags = '-';
         if (log.usedSoftware && log.usedSoftware.length > 0) {
             swTags = log.usedSoftware.map(s => {
@@ -754,7 +786,6 @@ function renderLogHistory(logs) {
             if (!swTags) swTags = '-';
         }
 
-        // คณะ
         let facultyDisplay = log.userFaculty || '-';
         if ((userRole.includes('student') || userRole.includes('นักศึกษา')) && log.userYear && log.userYear !== '-') {
             facultyDisplay += ` <small class="text-muted">(ปี ${log.userYear})</small>`;
@@ -821,13 +852,16 @@ function changeRowsPerPage(rows) {
     renderLogHistory(filteredLogsGlobal);
 }
 
-
 function getLocalYMD(date) {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const d = String(date.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
 }
+
+// ==========================================
+// 7. EXPORT / IMPORT CSV (QUARTERLY SUPPORTED)
+// ==========================================
 
 function exportReport(mode) {
     const modeNames = { 'daily': 'รายวัน', 'monthly': 'รายเดือน', 'quarterly': 'รายไตรมาส', 'yearly': 'รายปี' };
@@ -846,9 +880,22 @@ function exportReport(mode) {
             endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0); 
             break;
         case 'quarterly': 
-            const q = Math.floor(today.getMonth() / 3); 
-            startDate = new Date(today.getFullYear(), q * 3, 1); 
-            endDate = new Date(today.getFullYear(), (q * 3) + 3, 0); 
+            // 🌟 คำนวณไตรมาสตามเวลาปัจจุบัน (ปีงบประมาณไทย: ต.ค. คือเริ่ม Q1)
+            const currentMonth = today.getMonth(); // 0-11
+            let qYear = today.getFullYear();
+            let startMonth, endMonth;
+
+            if (currentMonth >= 9) { // ต.ค. - ธ.ค. (Q1 ปีงบใหม่)
+                startMonth = 9; endMonth = 11;
+            } else if (currentMonth >= 0 && currentMonth <= 2) { // ม.ค. - มี.ค. (Q2)
+                startMonth = 0; endMonth = 2;
+            } else if (currentMonth >= 3 && currentMonth <= 5) { // เม.ย. - มิ.ย. (Q3)
+                startMonth = 3; endMonth = 5;
+            } else { // ก.ค. - ก.ย. (Q4)
+                startMonth = 6; endMonth = 8;
+            }
+            startDate = new Date(qYear, startMonth, 1);
+            endDate = new Date(qYear, endMonth + 1, 0);
             break;
         case 'yearly': 
             startDate = new Date(today.getFullYear(), 0, 1); 
@@ -860,7 +907,6 @@ function exportReport(mode) {
     let currentPath = window.location.pathname;
     let exportPath = currentPath.replace(/\/report\/?$/, '/report/export/');
     
-    // 🌟 [เพิ่มใหม่] ลอจิกสำหรับเช็คว่าเลือกคณะ/หน่วยงานอะไรไว้บ้าง
     let selectedDepts = [];
     const userTypeElement = document.querySelector('input[name="userTypeOption"]:checked');
     const userType = userTypeElement ? userTypeElement.value : 'all';
@@ -875,13 +921,11 @@ function exportReport(mode) {
         });
     }
 
-    // 🌟 [เพิ่มใหม่] สร้างพารามิเตอร์ URL สำหรับส่งค่า
     let deptQuery = "";
     if (selectedDepts.length > 0) {
         deptQuery = `&department=${encodeURIComponent(selectedDepts.join(','))}`;
     }
     
-    // ส่งวันที่แบบ YYYY-MM-DD + คณะ (ถ้ามี) ไปให้หลังบ้านจัดการต่อ
     window.location.href = `${exportPath}?start_date=${getLocalYMD(startDate)}&end_date=${getLocalYMD(endDate)}${deptQuery}`;
 }
 
@@ -893,14 +937,12 @@ function downloadReportCSVTemplate() {
         ["guest999", "บุคคลภายนอก", "ChatGPT", "04/03/2026", "10:00 - 11:00", "บุคคลภายนอก", "-", "บุคคลภายนอก", "PC-02"]
     ];
 
-    // เอา \uFEFF ออกจาก String
     let csvContent = headers.join(",") + "\n";
     sampleRows.forEach(row => {
         const safeRow = row.map(cell => (cell && String(cell).includes(',')) ? `"${cell}"` : cell);
         csvContent += safeRow.join(",") + "\n";
     });
 
-    // สร้าง BOM เป็น Uint8Array
     const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
     const blob = new Blob([bom, csvContent], { type: 'text/csv;charset=utf-8;' });
     
