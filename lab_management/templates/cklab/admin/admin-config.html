@@ -96,6 +96,12 @@
                                 <label class="form-label small fw-bold text-success">เบอร์โทรศัพท์ติดต่อ (Contact Number)</label>
                                 <input type="text" name="contact_phone" class="form-control" value="{{ config.admin_on_duty.contact_phone|default:'' }}">
                             </div>
+                            
+                            <div class="col-12 mt-4">
+                                <label class="form-label small fw-bold text-primary"><i class="bi bi-link-45deg me-1"></i> ลิงก์แบบประเมินความพึงพอใจ (Google Form URL)</label>
+                                <input type="url" name="feedback_url" class="form-control" value="{{ config.feedback_url|default:'' }}" placeholder="https://docs.google.com/forms/d/e/.../viewform?embedded=true">
+                                <div class="form-text small text-muted">* แนะนำให้ต่อท้ายลิงก์ด้วย <code>?embedded=true</code> เพื่อให้ฟอร์มแสดงผลในหน้าจอ Kiosk ได้อย่างสวยงาม</div>
+                            </div>
                         </div>
 
                         <hr class="my-4">

@@ -16,21 +16,3 @@ class CheckinForm(forms.Form):
     user_type = forms.CharField(max_length=50, required=False, initial='guest')
     department = forms.CharField(max_length=150, required=False, initial='-')
     user_year = forms.CharField(max_length=10, required=False, initial='-')
-
-class FeedbackForm(forms.Form):
-    # ฟิลด์ที่รับมาจากหน้า feedback.html
-    satisfaction_score = forms.IntegerField(
-        min_value=1, 
-        max_value=5, 
-        required=True,
-        error_messages={
-            'required': 'กรุณาให้คะแนนความพึงพอใจ',
-            'min_value': 'คะแนนต้องไม่ต่ำกว่า 1',
-            'max_value': 'คะแนนต้องไม่เกิน 5'
-        }
-    )
-    comment = forms.CharField(
-        widget=forms.Textarea, 
-        required=False,
-        max_length=500
-    )

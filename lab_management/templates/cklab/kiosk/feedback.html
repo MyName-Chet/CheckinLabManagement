@@ -6,53 +6,73 @@
 {% block extra_head %}
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link href="{% static 'cklab/css/main.css' %}?v={% now 'U' %}" rel="stylesheet">
+<style>
+    /* ซ่อน Navbar / Sidebar เพื่อให้เป็นหน้า Kiosk เต็มจอ ได้พื้นที่เพิ่มขึ้น */
+    header, nav, .sidebar, .navbar { display: none !important; }
 
+    body {
+        background-color: #f4f6f9; /* ปรับสีพื้นหลังให้สบายตา */
+    }
+
+    /* ปรับแต่งกรอบสำหรับใส่ Google Form ให้ใหญ่ระดับ Full Screen */
+    .iframe-container {
+        width: 100%;
+        height: 75vh; /* ใช้ความสูง 75% ของหน้าจอ */
+        min-height: 800px; /* ความสูงขั้นต่ำ ป้องกันฟอร์มโดนตัด */
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid #dee2e6;
+        /* ใช้สีพื้นหลังเดียวกับ Google Form เพื่อให้ดูเนียนเป็นเนื้อเดียวกัน */
+        background-color: #f0ebf8; 
+    }
+    
+    .success-icon-wrap {
+        width: 65px;
+        height: 65px;
+        margin: 0 auto;
+    }
+
+    /* ลดขอบขาวรอบๆ การ์ดลง เพื่อเพิ่มพื้นที่ให้ iframe */
+    .kiosk-body {
+        padding: 1.5rem !important; 
+    }
+</style>
 {% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-center align-items-center min-vh-100 py-2">
-    <div class="kiosk-card w-100 text-center animate-fade shadow-lg border-0 rounded-4 overflow-hidden" style="max-width: 500px; background: white;">
+<div class="d-flex justify-content-center align-items-center min-vh-100 py-3">
+    
+    <div class="kiosk-card text-center animate-fade shadow-lg border-0 rounded-4 overflow-hidden" style="width: 95%; max-width: 1400px; background: white;">
         
-        <div class="kiosk-body p-4">
+        <div class="kiosk-body">
             
-            <div class="success-animation mb-2">
+            <div class="success-animation success-icon-wrap mb-2">
                 <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
                     <circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none" />
                     <path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8" />
                 </svg>
             </div>
 
-            <h3 class="fw-bold mt-2 text-primary">เลิกใช้งานสำเร็จ!</h3>
-            <p class="text-muted mb-0">ขอบคุณที่ใช้บริการ {{ config.lab_name|default:"CKLab" }}</p>
+            <h2 class="fw-bold mt-1 text-success">เลิกใช้งานสำเร็จ!</h2>
+            <p class="text-muted fs-5 mb-3">รบกวนเวลาประเมินความพึงพอใจ เพื่อนำไปพัฒนาการบริการครับ</p>
 
-            <hr class="my-3 opacity-10">
+            <div class="iframe-container shadow-sm mb-4">
+                <iframe 
+                    id="gformIframe"
+                    src="{{ feedback_url }}" 
+                    width="100%" 
+                    height="100%" 
+                    frameborder="0" 
+                    marginheight="0" 
+                    marginwidth="0"
+                    onload="handleFormSubmit()">
+                    กำลังโหลดแบบฟอร์ม...
+                </iframe>
+            </div>
 
-            <form id="feedbackForm" method="POST">
-                {% csrf_token %}
-                
-                <p class="mb-2 fw-bold text-secondary">ความพึงพอใจของคุณ</p>
-                
-                <div class="star-rating mb-1" id="starContainer">
-                    <span onclick="setRate(1)" onmouseover="hoverStar(1)" onmouseout="resetHover()">★</span>
-                    <span onclick="setRate(2)" onmouseover="hoverStar(2)" onmouseout="resetHover()">★</span>
-                    <span onclick="setRate(3)" onmouseover="hoverStar(3)" onmouseout="resetHover()">★</span>
-                    <span onclick="setRate(4)" onmouseover="hoverStar(4)" onmouseout="resetHover()">★</span>
-                    <span onclick="setRate(5)" onmouseover="hoverStar(5)" onmouseout="resetHover()">★</span>
-                </div>
-                
-                <input type="hidden" name="satisfaction_score" id="scoreValue" value="5">
-
-                <div id="rateText" class="fw-bold mb-3" style="color: #198754; font-size: 0.95rem;">ยอดเยี่ยม (5/5)</div>
-
-                <div class="feedback-box">
-                    <label class="text-label text-start w-100 mb-2">ข้อเสนอแนะเพิ่มเติม (Optional)</label>
-                    <textarea name="comment" id="comment" class="form-control" rows="2" placeholder="พิมพ์ข้อความที่นี่..."></textarea>
-                </div>
-
-                <button type="button" onclick="submitFeedback()" class="btn btn-primary w-100 py-3 mt-3 shadow-sm fw-bold">
-                    ส่งข้อมูลและกลับหน้าหลัก
-                </button>
-            </form>
+            <button type="button" onclick="goHome()" class="btn btn-outline-secondary btn-lg px-5 py-3 fw-bold transition-btn shadow-sm rounded-pill">
+                <i class="bi bi-arrow-right-circle me-2"></i> ข้ามการประเมินและกลับหน้าหลัก
+            </button>
 
         </div>
     </div>
@@ -61,9 +81,26 @@
 
 {% block extra_scripts %}
 <script>
-    const PC_ID = "{{ pc_id }}";
-    const LOG_ID = "{{ log_id }}";
-</script>
+    const PC_ID = "{{ pc_id|default:''|escapejs }}";
+    let iframeLoadCount = 0;
 
-<script src="{% static 'cklab/js/feedback.js' %}?v={% now 'U' %}"></script>
+    // ฟังก์ชันเตะกลับหน้าแรก
+    function goHome() {
+        window.location.href = `/?pc=${PC_ID}`;
+    }
+
+    // ดักจับการโหลดของ Iframe
+    function handleFormSubmit() {
+        iframeLoadCount++;
+        
+        // โหลดครั้งที่ 1 คือฟอร์มปรากฏ
+        // โหลดครั้งที่ 2 คือกดยืนยันส่งฟอร์มแล้ว
+        if (iframeLoadCount > 1) {
+            // รอ 2 วินาทีให้ผู้ใช้อ่านข้อความ "บันทึกคำตอบแล้ว" จากนั้นเด้งกลับหน้าแรก
+            setTimeout(() => {
+                goHome();
+            }, 2000); 
+        }
+    }
+</script>
 {% endblock %}

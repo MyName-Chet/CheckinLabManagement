@@ -1,70 +1,259 @@
-# 🖥️ CKLab Management System
+# CKLab Management System
 
-ระบบบริหารจัดการห้องปฏิบัติการคอมพิวเตอร์ พัฒนาด้วย **Django Framework** โดยเน้นประสิทธิภาพและความปลอดภัย รองรับการใช้งานทั้งฝั่งผู้ใช้ (Kiosk) และผู้ดูแลระบบ (Admin Portal) — ใช้ **Class-Based Views (CBV)** เป็นหลัก
-
----
-
-## 🛠️ Tech Stack & Frameworks
-
-| Category | Technology | Description |
-| :--- | :--- | :--- |
-| **Language** | ![Python](https://img.shields.io/badge/Python-3.10+-blue) | Backend Logic |
-| **Framework** | ![Django](https://img.shields.io/badge/Django-5.0-green) | MVT Web Framework |
-| **Database** | ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791) | Relational Database (via Docker) |
-| **Frontend** | ![Bootstrap](https://img.shields.io/badge/Bootstrap-5-purple) | Responsive UI |
-| **Package Manager** | ![uv](https://img.shields.io/badge/uv-Astral-pink) | Fast Python package installer |
+ระบบบริหารจัดการห้องปฏิบัติการคอมพิวเตอร์ (Check-in / Check-out / Booking / Monitor / Report)
+พัฒนาด้วย **Django 5 + PostgreSQL 15** และรันระบบทั้งหมดผ่าน **Docker Compose**
 
 ---
 
-## 👥 ตารางแบ่งหน้าที่ (Route Responsibility)
+## 📦 Tech Stack
 
-> **ข้อกำหนด:** สมาชิกทุกคนในทีมดูแล Code และ Logic อย่างน้อย **2 Routes**
-
-| ผู้รับผิดชอบ (Member) | หน้าที่หลัก (Role) | Routes ที่ดูแล | View Class (CBV) | Model ที่ดูแล |
-| :--- | :--- | :--- | :--- | :--- |
-| **1. ปภังกร** | **User / Kiosk System** | `path('', ...)`<br>`path('checkin/<pc_id>/', ...)`<br>`path('checkout/<pc_id>/', ...)`<br>`path('status/<pc_id>/', ...)`<br>`path('feedback/<pc_id>/<software_id>/', ...)` | `IndexView`<br>`CheckinView`<br>`CheckoutView`<br>`StatusView`<br>`FeedbackView` | — |
-| **2. สถาพร** | **Admin Auth** | `path('admin-portal/login/', ...)`<br>`path('admin-portal/logout/', ...)` | Django built-in `LoginView` / `LogoutView` | — |
-| **8. ภานุวัฒน์** | **Config + User Mgmt** | `path('admin-portal/config/', ...)`<br>`path('admin-portal/users/', ...)`<br>`path('admin-portal/users/<pk>/edit/', ...)`<br>`path('admin-portal/users/<pk>/delete/', ...)` | `AdminConfigView`<br>`AdminUserView`<br>`AdminUserEditView`<br>`AdminUserDeleteView` | `SiteConfig` |
-| **3. ธนสิทธิ์** | **Admin Monitor** | `path('admin-portal/monitor/', ...)`<br>`path('admin-portal/checkin/<pc_id>/', ...)`<br>`path('admin-portal/checkout/<pc_id>/', ...)` | `AdminMonitorView`<br>`AdminCheckinView`<br>`AdminCheckoutView` | `Computer` |
-| **4. อัษฎาวุธ** | **Booking** | `path('admin-portal/booking/', ...)`<br>`path('admin-portal/booking/<pk>/', ...)`<br>`path('admin-portal/booking/import/', ...)` | `AdminBookingView`<br>`AdminBookingDetailView`<br>`AdminImportBookingView` | `Booking` |
-| **5. ณัฐกรณ์** | **PC Manage** | `path('admin-portal/manage-pc/', ...)`<br>`path('admin-portal/manage-pc/add/', ...)`<br>`path('admin-portal/manage-pc/<pc_id>/edit/', ...)`<br>`path('admin-portal/manage-pc/<pc_id>/delete/', ...)` | `AdminManagePcView`<br>`AdminAddPcView`<br>`AdminManagePcEditView`<br>`AdminManagePcDeleteView` | `Status` |
-| **6. ลลิดา** | **Software** | `path('admin-portal/software/', ...)`<br>`path('admin-portal/software/<pk>/edit/', ...)`<br>`path('admin-portal/software/<pk>/delete/', ...)` | `AdminSoftwareView`<br>`AdminSoftwareEditView`<br>`AdminSoftwareDeleteView` | `Software` |
-| **7. เขมมิกา** | **Report** | `path('admin-portal/report/', ...)`<br>`path('admin-portal/report/export/', ...)` (Export CSV) | `AdminReportView`<br>`AdminReportExportView` | `UsageLog` |
+| Layer          | Technology                                    |
+| -------------- | --------------------------------------------- |
+| Infrastructure | Docker & Docker Compose                       |
+| Backend        | Python 3.10+ / Django 5.0                     |
+| Database       | PostgreSQL 15                                 |
+| Frontend       | Django Templates + Bootstrap 5.3 + Vanilla JS |
+| Font           | Google Fonts — Kanit                          |
 
 ---
 
-## ⚙️ คู่มือการติดตั้งและพัฒนา (Development Setup)
+# 📁 Project Structure
 
-โปรเจกต์นี้ใช้ **uv** เป็น Package Manager เพื่อความรวดเร็ว
-
-### 1. Prerequisites (สิ่งที่ต้องมี)
-* Python 3.10 ขึ้นไป
-* Docker Desktop (สำหรับรัน Database)
-* uv (`winget install astral-sh.uv`)
-
-### 2. ติดตั้ง Environment และ Libraries
-```powershell
-# สร้าง Virtual Environment
-uv venv
-
-# เปิดใช้งาน Environment
-.\.venv\Scripts\activate
-
-# ติดตั้ง Django และ Library ที่จำเป็น
-uv pip install django psycopg2-binary python-dotenv
+```
+CheckinLabManagement/
+├── cklab_project/                # Django project config
+│   ├── settings.py               # Database, apps, middleware, auth redirects
+│   ├── urls.py                   # Root URL → include('lab_management.urls')
+│   ├── wsgi.py
+│   └── asgi.py
+│
+├── lab_management/               # Main application
+│   ├── models.py                 # SiteConfig, AdminonDuty, Software, Booking, Computer, UsageLog
+│   ├── views/                    # Class-Based Views (CBV)
+│   ├── forms/                    # Django Forms
+│   ├── urls.py                   # URL patterns ทั้งหมด
+│   ├── admin.py                  # Django admin registration
+│   ├── management/commands/      # Custom commands (เช่น seed_data.py)
+│   ├── templates/cklab/          # HTML Templates
+│   └── static/cklab/             # CSS, JS, Images
+│
+├── .env
+├── .env.example
+├── .gitignore
+├── Dockerfile
+├── docker-compose.yml
+├── manage.py
+└── README.md
 ```
 
-### 3. เริ่มต้นระบบ (Run Project)
+---
+
+# ⚙️ Environment Variables
+
+โปรเจกต์ใช้ไฟล์ `.env` สำหรับเก็บค่าการตั้งค่า (ไม่ควร commit เข้า git)
+
+### วิธีตั้งค่าสำหรับสมาชิกใหม่
+
 ```powershell
-# 1. รัน Database
-docker compose up -d
+cp .env.example .env
+```
 
-# 2. สร้างตารางใน Database
-python manage.py makemigrations
-python manage.py migrate
+---
 
-# 3. สร้าง Superuser (สำหรับเข้า Django Admin)
-python manage.py createsuperuser
+# 🚀 Quick Start (Run with Docker)
 
-# 4. รัน Server
-python manage.py runserver
+> ไม่ต้องติดตั้ง Python หรือ PostgreSQL ลงเครื่อง
+
+### 1️⃣ Setup ครั้งแรก
+
+```powershell
+# คัดลอก environment file
+cp .env.example .env
+
+# Build และรัน Web + Database
+docker-compose up --build -d
+
+# สร้างตารางในฐานข้อมูล
+docker-compose exec web python manage.py migrate
+
+# Seed ข้อมูลเริ่มต้น + Superuser
+docker-compose exec web python manage.py seed_data
+```
+
+### 🔐 Default Admin
+
+```
+Username: admin
+Password: admin1234
+```
+
+---
+
+# 🌐 Access URLs
+
+| ระบบ         | URL                                                                                    |
+| ------------ | -------------------------------------------------------------------------------------- |
+| Kiosk        | [http://localhost:8000/](http://localhost:8000/)                                       |
+| Admin Portal | [http://localhost:8000/admin-portal/login/](http://localhost:8000/admin-portal/login/) |
+| Django Admin | [http://localhost:8000/django-admin/](http://localhost:8000/django-admin/)             |
+
+---
+
+# 🐳 Docker Commands ที่ใช้บ่อย
+
+```powershell
+# รันระบบ
+docker-compose up -d
+
+# ปิดระบบ
+docker-compose down
+
+# ดู Log แบบ Real-time
+docker-compose logs -f web
+
+# เข้า Container
+docker-compose exec web bash
+
+# สั่งคำสั่ง Django โดยตรง
+docker-compose exec web python manage.py makemigrations
+docker-compose exec web python manage.py migrate
+```
+
+> ⚠️ ถ้ามีการเพิ่ม library ใหม่ใน requirements.txt ต้องรัน:
+
+```
+docker-compose up --build -d
+```
+
+---
+
+# 🗄️ Database Models
+
+| Model       | หน้าที่                   |
+| ----------- | ------------------------- |
+| SiteConfig  | เก็บค่า config ระบบ       |
+| AdminonDuty | ข้อมูลเจ้าหน้าที่ประจำวัน |
+| Software    | ข้อมูล Software/AI        |
+| Booking     | ข้อมูลการจอง              |
+| Computer    | ข้อมูลเครื่องคอมพิวเตอร์  |
+| UsageLog    | บันทึกประวัติการใช้งาน    |
+
+---
+
+# 🧠 Views (Class-Based Views)
+
+โปรเจกต์ใช้ **CBV ทั้งหมด**
+
+## 🖥 Kiosk (ไม่ต้อง Login)
+
+| URL                                | View         |
+| ---------------------------------- | ------------ |
+| `/`                                | IndexView    |
+| `/checkin/<pc_id>/`                | CheckinView  |
+| `/checkout/<pc_id>/`               | CheckoutView |
+| `/status/<pc_id>/`                 | StatusView   |
+| `/feedback/<pc_id>/<software_id>/` | FeedbackView |
+
+---
+
+## 🔐 Admin Portal (Login Required)
+
+ใช้ `LoginRequiredMixin`
+
+ตัวอย่าง:
+
+```
+/admin-portal/login/
+/admin-portal/monitor/
+/admin-portal/booking/
+/admin-portal/report/
+```
+
+---
+
+# 🔄 Session Flow
+
+### Admin Session
+
+* ใช้ `LoginRequiredMixin`
+* Login สำเร็จ → อัปเดต AdminonDuty
+
+### Kiosk Session
+
+เก็บค่า:
+
+* `pc_id`
+* `user_name`
+* `start_time`
+
+เมื่อ Checkout หรือ Feedback เสร็จ:
+
+```
+session.flush()
+```
+
+---
+
+# 🛠 Development Workflow
+
+### ขั้นตอนทำ Feature ใหม่
+
+1. เขียน logic ใน `views/`
+2. Export class ใน `views/__init__.py`
+3. เพิ่ม URL ใน `lab_management/urls.py`
+4. สร้าง Template ใน `templates/cklab/admin/`
+5. หากแก้ Model:
+
+```powershell
+docker-compose exec web python manage.py makemigrations
+docker-compose exec web python manage.py migrate
+```
+
+---
+
+# 🌿 Git Workflow
+
+```powershell
+# ดึงโค้ดล่าสุด
+git pull origin main
+
+# สร้าง branch ใหม่
+git checkout -b feature/your-feature-name
+
+# commit
+git add .
+git commit -m "Add your feature description"
+
+# push
+git push origin feature/your-feature-name
+```
+
+### Merge โค้ดเพื่อนเข้า Branch ตัวเอง
+
+```powershell
+git checkout main
+git pull origin main
+
+git checkout feature/your-feature-name
+git merge main
+```
+
+---
+
+# 🧩 Important Notes
+
+* 🟢 แก้ไฟล์ Python → Docker Hot Reload อัตโนมัติ
+* 🔴 เพิ่ม Library ใหม่ → ต้อง `--build`
+* ❌ ห้าม commit `.env`
+* ✅ ต้องสร้าง Pull Request ก่อน merge เข้า `main`
+
+---
+
+# 👨‍💻 สำหรับทีมพัฒนา
+
+ระบบนี้ออกแบบให้:
+
+* เริ่มต้นได้ภายใน 5 นาที
+* ไม่ต้องติดตั้ง dependency ลงเครื่อง
+* แยกความรับผิดชอบชัดเจน
+* รองรับการพัฒนาแบบ Team Workflow

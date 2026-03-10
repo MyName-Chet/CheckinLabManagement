@@ -34,6 +34,7 @@ class AdminImportBookingView(LoginRequiredMixin, View):
             return redirect('admin_booking')
 
         try:
+            # ใช้ utf-8-sig เพื่อให้ตัด BOM ทิ้งเวลาอ่านไฟล์ภาษาไทย
             decoded_file = csv_file.read().decode('utf-8-sig')
             io_string = io.StringIO(decoded_file)
             reader = csv.DictReader(io_string)
@@ -45,16 +46,15 @@ class AdminImportBookingView(LoginRequiredMixin, View):
                 time_str = row.get('เวลา', '').strip()
                 user_id = row.get('ผู้จอง', '').strip()
                 pc_name = row.get('เครื่อง', '').strip()
-                software_name = row.get('Software / AI ที่จอง', '').strip() # ดึงมาเผื่อไว้ (แต่อิงตาม PC เป็นหลัก)
+                # software_name = row.get('Software / AI ที่จอง', '').strip()
 
-                # ถ้าข้อมูลสำคัญมาไม่ครบ ให้ข้ามไปแถวถัดไป
                 if not user_id or not pc_name or not date_str or not time_str:
                     continue
                     
                 # 2. ค้นหาเครื่องคอมพิวเตอร์จากฐานข้อมูล
                 computer = Computer.objects.filter(name=pc_name).first()
                 if not computer:
-                    continue # ถ้าไม่เจอชื่อเครื่องในระบบ ให้ข้ามไป
+                    continue 
                     
                 # 3. จัดการแยกเวลาเข้า-ออก และแปลงเป็น DateTime
                 try:
@@ -62,7 +62,6 @@ class AdminImportBookingView(LoginRequiredMixin, View):
                     start_t = times[0]
                     end_t = times[1] if len(times) > 1 else start_t
                     
-                    # รองรับวันที่ทั้งแบบ DD/MM/YYYY และ YYYY-MM-DD
                     if '/' in date_str:
                         d_obj = datetime.strptime(date_str, '%d/%m/%Y')
                     else:
@@ -72,15 +71,16 @@ class AdminImportBookingView(LoginRequiredMixin, View):
                     start_dt = timezone.make_aware(datetime.strptime(f"{date_fmt} {start_t}", '%Y-%m-%d %H:%M'))
                     end_dt = timezone.make_aware(datetime.strptime(f"{date_fmt} {end_t}", '%Y-%m-%d %H:%M'))
                 except Exception:
-                    continue # ข้ามถ้ารูปแบบวันที่หรือเวลาพิมพ์มาผิด
+                    continue 
 
                 # 4. บันทึกข้อมูลลงฐานข้อมูลการจอง
                 Booking.objects.create(
                     student_id=user_id,
+                    user_name=user_id, # หากใน CSV ไม่มีคอลัมน์ชื่อ ให้ใช้รหัสแทนไปก่อน
                     computer=computer,
                     start_time=start_dt,
                     end_time=end_dt,
-                    status='APPROVED' # ตั้งให้เป็นอนุมัติทันทีที่นำเข้า
+                    status='APPROVED' 
                 )
                 success_count += 1
                 
@@ -101,7 +101,6 @@ class AdminBookingDataAPIView(LoginRequiredMixin, View):
             
             pc_list = []
             for p in pcs:
-                # เรียกใช้ฟิลด์ Software (S ตัวใหญ่) ตาม Model
                 sw_name = p.Software.name if p.Software else '-'
                 sw_type = p.Software.type if p.Software else 'General'
 
@@ -121,10 +120,13 @@ class AdminBookingDataAPIView(LoginRequiredMixin, View):
             bookings = Booking.objects.all().order_by('-start_time')
             booking_list = []
             for b in bookings:
+                # 🌟 ดึงฟิลด์ user_name มาใช้งาน ถ้าไม่มีให้ใช้ student_id แทน
+                display_name = getattr(b, 'user_name', None) or b.student_id
+
                 booking_list.append({
                     'id': b.id,
-                    'user_id': b.student_id, # ตามชื่อฟิลด์ใน Model
-                    'user_name': b.student_id, # เนื่องจาก Model Booking ไม่มี user_name จึงใช้รหัสแทน
+                    'user_id': b.student_id, 
+                    'user_name': display_name, # 🌟 ส่งชื่อกลับไปให้ JS แสดงผลในตาราง
                     'pc_name': b.computer.name if b.computer else '-',
                     'date': timezone.localtime(b.start_time).strftime('%Y-%m-%d') if b.start_time else '',
                     'start_time': timezone.localtime(b.start_time).strftime('%H:%M') if b.start_time else '',
@@ -152,12 +154,13 @@ class AdminBookingAddAPIView(LoginRequiredMixin, View):
             pc_name = data.get('pc_name')
             computer = get_object_or_404(Computer, name=pc_name)
             
-            # รวมวันที่และเวลา
             start_dt = datetime.strptime(f"{data.get('date')} {data.get('start_time')}", '%Y-%m-%d %H:%M')
             end_dt = datetime.strptime(f"{data.get('date')} {data.get('end_time')}", '%Y-%m-%d %H:%M')
 
+            # 🌟 รับข้อมูลชื่อมาจาก JS แล้วบันทึกลงฟิลด์ user_name
             Booking.objects.create(
-                student_id=data.get('user_id'), # ตาม Model
+                student_id=data.get('user_id'), 
+                user_name=data.get('user_name'), # 🌟 เพิ่มบรรทัดนี้
                 computer=computer,
                 start_time=timezone.make_aware(start_dt),
                 end_time=timezone.make_aware(end_dt),

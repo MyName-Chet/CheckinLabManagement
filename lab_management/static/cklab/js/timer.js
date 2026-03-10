@@ -59,7 +59,13 @@ async function syncWithAdminUpdates() {
     if (typeof PC_ID === 'undefined' || !PC_ID) return;
 
     try {
-        const response = await fetch(`/kiosk/api/status/${PC_ID}/`);
+        // ✅ ปรับ URL ให้ยืดหยุ่น รองรับทั้ง Root Path และ Kiosk Path
+        let fetchUrl = `/api/status/${PC_ID}/`;
+        if (window.location.pathname.includes('/kiosk/')) {
+            fetchUrl = `/kiosk/api/status/${PC_ID}/`;
+        }
+
+        const response = await fetch(fetchUrl);
         if (!response.ok) return;
 
         const data = await response.json();
@@ -67,7 +73,13 @@ async function syncWithAdminUpdates() {
         // หากสถานะเครื่องกลายเป็น AVAILABLE หรือ MAINTENANCE แปลว่าแอดมินสั่งเคลียร์เครื่องแล้ว
         if (data.status === 'AVAILABLE' || data.status === 'MAINTENANCE') {
             alert("⚠️ Admin ได้ทำการรีเซ็ตเครื่องหรือเช็คเอาท์ให้คุณแล้ว");
-            window.location.href = `/kiosk/?pc=${PC_ID}`; // กลับหน้าแรกทันที (ไม่ผ่าน feedback)
+            
+            // ✅ ปรับ URL เด้งกลับให้ยืดหยุ่นเช่นกัน
+            let homeUrl = `/?pc=${PC_ID}`;
+            if (window.location.pathname.includes('/kiosk/')) {
+                homeUrl = `/kiosk/?pc=${PC_ID}`;
+            }
+            window.location.href = homeUrl; // กลับหน้าแรกทันที (ไม่ผ่าน feedback)
             return;
         }
 
@@ -101,9 +113,12 @@ function doCheckout(isAuto = false) {
     if (!isAuto && !confirm('คุณต้องการเลิกใช้งานและออกจากระบบใช่หรือไม่?')) return;
     if (timerInterval) clearInterval(timerInterval);
 
-    // ป้องกันการกดปุ่มซ้ำรัวๆ
+    // ✅ ป้องกันการกดปุ่มซ้ำรัวๆ และเปลี่ยนข้อความปุ่มให้ดูว่ากำลังโหลด
     const btn = document.querySelector('.btn-danger');
-    if(btn) btn.disabled = true;
+    if(btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังออก...';
+    }
 
     // สั่งให้ Form ที่ครอบปุ่ม Checkout ไว้ ทำการ Submit ตัวเองไปยัง Django Backend (CheckoutView)
     const form = document.getElementById('checkoutForm');
@@ -111,5 +126,9 @@ function doCheckout(isAuto = false) {
         form.submit();
     } else {
         alert("ไม่พบฟอร์มสำหรับ Checkout กรุณาติดต่อผู้ดูแลระบบ");
+        if(btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-power me-2"></i> เลิกใช้งาน (Check-out)';
+        }
     }
 }

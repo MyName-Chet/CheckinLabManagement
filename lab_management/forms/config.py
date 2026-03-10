@@ -6,7 +6,8 @@ from ..models import SiteConfig, AdminonDuty  # <--- แก้ไขตรงน
 class SiteConfigForm(forms.ModelForm):
     class Meta:
         model = SiteConfig
-        fields = ['lab_name', 'location', 'is_open', 'booking_enabled', 'announcement']
+        # ✅ เพิ่ม 'feedback_url' เข้ามาใน fields เรียบร้อย
+        fields = ['lab_name', 'location', 'is_open', 'booking_enabled', 'announcement', 'feedback_url']
 
 # 2. ฟอร์มเพิ่มแอดมินใหม่ (บังคับกรอกรหัสผ่าน)
 class AdminUserForm(forms.ModelForm):

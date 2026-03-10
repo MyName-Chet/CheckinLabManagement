@@ -223,7 +223,8 @@ function renderFutureBookings(bookings) {
             <td class="text-primary fw-bold">${b.time}</td>
             <td><span class="badge bg-light text-dark border border-secondary">${b.pc_name}</span></td>
             <td>
-                <div class="fw-bold">${b.user_id}</div>
+                <div class="fw-bold text-dark">${b.user_name || b.user_id}</div>
+                <div class="small text-muted" style="font-size: 0.75rem;">${b.user_id}</div>
             </td>
             <td><span class="badge bg-warning text-dark border border-warning bg-opacity-25">อนุมัติแล้ว</span></td>
         </tr>

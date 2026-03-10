@@ -12,9 +12,9 @@ from django.http import JsonResponse
 # ปิดการแจ้งเตือนเรื่อง SSL เผื่อกรณี API มหาลัยใช้ Certificate ภายใน
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# Models และ Forms ที่ต้องใช้
+# Models และ Forms ที่ต้องใช้ (ลบ FeedbackForm ออกไปแล้ว)
 from lab_management.models import Computer, Software, SiteConfig, Booking, UsageLog
-from lab_management.forms.kiosk import CheckinForm, FeedbackForm
+from lab_management.forms.kiosk import CheckinForm
 
 
 class IndexView(View):
@@ -257,28 +257,16 @@ class CheckoutView(View):
 
 class FeedbackView(View):
     def get(self, request, pc_id, software_id):
+        # 1. ดึงการตั้งค่าระบบมา
+        config = SiteConfig.objects.first()
+        
+        # 2. เตรียมลิงก์ (ถ้าแอดมินไม่ได้ตั้งค่าไว้ ให้ใช้ลิงก์ Default)
+        default_url = "https://docs.google.com/forms/d/e/1FAIpQLSfnaw6G3NFsuKwngOenWfQ2pU3AQDAYbJ-ON1W5TpU8xjDeKw/viewform?embedded=true"
+        current_feedback_url = config.feedback_url if (config and config.feedback_url) else default_url
+
         context = {
             'pc_id': pc_id,
-            'log_id': software_id  
+            'log_id': software_id,
+            'feedback_url': current_feedback_url  # ✅ ส่งตัวแปรลิงก์ไปที่หน้า HTML
         }
         return render(request, 'cklab/kiosk/feedback.html', context)
-
-    def post(self, request, pc_id, software_id):
-        # เรียกใช้ FeedbackForm เพื่อกรองข้อมูล
-        form = FeedbackForm(request.POST)
-        
-        if form.is_valid():
-            score = form.cleaned_data.get('satisfaction_score')
-            comment = form.cleaned_data.get('comment', '')
-
-            try:
-                usage_log = UsageLog.objects.get(id=software_id)
-                if score:
-                    usage_log.satisfaction_score = score
-                if comment:
-                    usage_log.comment = comment
-                usage_log.save()
-            except UsageLog.DoesNotExist:
-                pass
-
-        return redirect(f"{reverse('index')}?pc={pc_id}")

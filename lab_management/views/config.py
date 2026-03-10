@@ -34,6 +34,10 @@ class AdminConfigView(LoginRequiredMixin, View):
                     duty_obj.save()
                     config.admin_on_duty = duty_obj
                 
+                # ✅ รับค่า "ลิงก์ Google Form" จากหน้าเว็บมาบันทึกลงฐานข้อมูลโดยตรง
+                if 'feedback_url' in request.POST:
+                    config.feedback_url = request.POST.get('feedback_url')
+                
                 config.save()
                 messages.success(request, 'บันทึกการตั้งค่าและสถานะห้องเรียบร้อยแล้ว')
             else:

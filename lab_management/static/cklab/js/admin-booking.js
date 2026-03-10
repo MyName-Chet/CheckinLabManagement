@@ -365,7 +365,7 @@ async function updateStatus(bookingId, newStatus) {
 // 5. EXPORT / IMPORT CSV TEMPLATE
 // ==========================================
 function downloadBookingCSVTemplate() {
-    // 1. กำหนดหัวคอลัมน์เป็น "ภาษาไทย" ให้ตรงกับ Backend เป๊ะๆ
+    // 1. กำหนดหัวคอลัมน์เป็น "ภาษาไทย" ให้ตรงกับ Backend
     const headers = [
         "วันที่", 
         "เวลา", 
@@ -381,9 +381,8 @@ function downloadBookingCSVTemplate() {
         ["19/01/2026", "10:00 - 11:00", "guest999", "PC-02", "-"]
     ];
 
-    // 3. รวม Header กับข้อมูลเข้าด้วยกัน
-    // ใส่ BOM (\uFEFF) ไว้หน้าสุด เพื่อบังคับให้ Excel เปิดไฟล์แล้วอ่านภาษาไทยออกทันที
-    let csvContent = "\uFEFF" + headers.join(",") + "\n";
+    // 3. รวม Header กับข้อมูลเข้าด้วยกัน (ไม่ต้องใส่ \uFEFF ตรงนี้แล้ว)
+    let csvContent = headers.join(",") + "\n";
     
     // วนลูปจัดการข้อมูลแต่ละแถว
     sampleRows.forEach(row => {
@@ -397,8 +396,11 @@ function downloadBookingCSVTemplate() {
         csvContent += safeRow.join(",") + "\n";
     });
 
-    // 4. สั่งให้เบราว์เซอร์ดาวน์โหลดไฟล์ลงเครื่อง
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    // 4. สร้าง BOM (Byte Order Mark) แบบ Hexadecimal Array เพื่อให้ไฟล์เป็น UTF-8 แท้ 100%
+    const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+    
+    // สั่งให้เบราว์เซอร์ดาวน์โหลดไฟล์ลงเครื่อง โดยแนบ BOM เข้าไปเป็นชิ้นแรก ตามด้วยเนื้อหา
+    const blob = new Blob([bom, csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
 
