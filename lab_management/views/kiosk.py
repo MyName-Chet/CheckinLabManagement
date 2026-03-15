@@ -12,7 +12,7 @@ from django.http import JsonResponse
 # ปิดการแจ้งเตือนเรื่อง SSL เผื่อกรณี API มหาลัยใช้ Certificate ภายใน
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# Models และ Forms ที่ต้องใช้ (ลบ FeedbackForm ออกไปแล้ว)
+# Models และ Forms ที่ต้องใช้
 from lab_management.models import Computer, Software, SiteConfig, Booking, UsageLog
 from lab_management.forms.kiosk import CheckinForm
 
@@ -43,7 +43,8 @@ class IndexView(View):
 
             if active_log:
                 # 🟢 กรณีปกติ: เจอประวัติที่ยังไม่เช็คเอาท์ -> เด้งไปหน้า Timer ทันที (พร้อมเวลาเดิม)
-                start_time_ms = int(active_log.start_time.timestamp() * 1000) if active_log.start_time else 0
+                # ✅ แก้ไขแล้ว: ใช้ timezone.now() แทน เพื่อป้องกันบั๊ก Timezone +7 ทำให้เวลาค้าง
+                start_time_ms = int(active_log.start_time.timestamp() * 1000) if active_log.start_time else int(timezone.now().timestamp() * 1000)
                 sw_name = computer.Software.name if computer.Software else "General Use"
                 
                 context = {
@@ -160,17 +161,13 @@ class VerifyUserAPIView(View):
                     }
                 })
             else:
-                # ✅ ปรับข้อความเมื่อไม่พบรหัส ให้เป็นภาษาไทยที่เข้าใจง่าย
                 return JsonResponse({'status': 'error', 'message': 'ไม่พบรหัสผู้ใช้งานนี้ในระบบ หรือท่านยังไม่ได้ลงทะเบียนในระบบของมหาวิทยาลัย'}, status=404)
 
         except requests.exceptions.Timeout:
-            # ✅ ปรับข้อความเมื่อ Timeout
             return JsonResponse({'status': 'error', 'message': 'หมดเวลาการเชื่อมต่อ (Timeout) เซิร์ฟเวอร์ของมหาวิทยาลัยตอบกลับช้า โปรดลองใหม่อีกครั้ง'}, status=504)
         except requests.exceptions.RequestException as e:
-            # ✅ ปรับข้อความเมื่อเน็ตหลุด/เชื่อมต่อไม่ได้
             return JsonResponse({'status': 'error', 'message': 'ไม่สามารถเชื่อมต่อกับเครือข่ายของมหาวิทยาลัยได้ โปรดตรวจสอบอินเทอร์เน็ตหรือระบบ VPN ของท่าน'}, status=503)
         except Exception as e:
-            # ✅ ข้อความ Error รวมๆ ของระบบ
             return JsonResponse({'status': 'error', 'message': f'ระบบขัดข้องภายใน: {str(e)}'}, status=500)
 
 
@@ -220,8 +217,8 @@ class CheckinView(View):
             computer.status = 'IN_USE'
             computer.save()
 
-            # ✅ แปลงเวลาที่เพิ่ง Check-in เพื่อส่งให้หน้า timer (กันบั๊กเวลาเป็น 0)
-            start_time_ms = int(usage_log.start_time.timestamp() * 1000) if usage_log.start_time else 0
+            # ✅ แก้ไขแล้ว: ดึงเวลาปัจจุบันมาแปลงเป็น Timestamp เลย ป้องกันปัญหาเวลาค้าง 00:00:00
+            start_time_ms = int(timezone.now().timestamp() * 1000)
 
             context = {
                 'computer': computer,

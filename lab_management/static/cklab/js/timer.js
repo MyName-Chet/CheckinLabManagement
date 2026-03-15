@@ -45,7 +45,14 @@ function setupUnlimitedMode() {
 function updateTimer() {
     const now = Date.now();
     let diff = now - startTime;
-    if (diff < 0) diff = 0;
+    
+    // ✅ ตัวแก้บั๊กเวลาค้าง (Timezone Desync Fix)
+    // ถ้า diff ติดลบ (แปลว่าเวลา Server ล้ำหน้าไปในอนาคต)
+    // ให้บังคับใช้เวลาปัจจุบันของเครื่องผู้ใช้เป็นจุดเริ่มต้นแทนเลย
+    if (diff < 0) {
+        startTime = now;
+        diff = 0;
+    }
     
     const timerDisplay = document.getElementById('timerDisplay');
     if(timerDisplay) {
